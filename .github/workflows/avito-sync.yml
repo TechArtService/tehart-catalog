@@ -1,0 +1,94 @@
+name: Avito Catalog Sync
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install requests python-dotenv
+
+      - name: Sync catalog
+        env:
+          AVITO_CLIENT_ID: ${{ secrets.AVITO_CLIENT_ID }}
+          AVITO_CLIENT_SECRET: ${{ secrets.AVITO_CLIENT_SECRET }}
+        run: |
+          python - <<'PY'
+          import os, json, re, requests
+          from pathlib import Path
+
+          auth = requests.post(
+              "https://api.avito.ru/token/",
+              data={
+                  "grant_type": "client_credentials",
+                  "client_id": os.environ["AVITO_CLIENT_ID"],
+                  "client_secret": os.environ["AVITO_CLIENT_SECRET"],
+              },
+              timeout=30,
+          )
+          auth.raise_for_status()
+          token = auth.json()["access_token"]
+          headers = {"Authorization": f"Bearer {token}"}
+
+          items = []
+          page = 1
+          while True:
+              response = requests.get(
+                  "https://api.avito.ru/core/v1/items",
+                  headers=headers,
+                  params={"per_page": 99, "page": page, "status": "active"},
+                  timeout=30,
+              )
+              response.raise_for_status()
+              batch = response.json().get("resources", [])
+              if not batch:
+                  break
+              items.extend(batch)
+              if len(batch) < 99:
+                  break
+              page += 1
+
+          path = Path("index.html")
+          html = path.read_text(encoding="utf-8")
+          match = re.search(r'(const products = )(\[.*?\])(;)', html, re.S)
+          if not match:
+              raise RuntimeError("Массив products не найден; сайт не изменён")
+
+          products = json.loads(match.group(2))
+          api = {str(x["id"]): x for x in items}
+          updated = 0
+
+          for product in products:
+              item = api.get(str(product.get("id", "")))
+              if not item:
+                  continue
+              product["price"] = str(item["price"]) if item.get("price") is not None else product.get("price")
+              product["status"] = item.get("status", product.get("status"))
+              updated += 1
+
+          html = html[:match.start(2)] + json.dumps(products, ensure_ascii=False) + html[match.end(2):]
+          path.write_text(html, encoding="utf-8")
+          print(f"Объявлений обновлено: {updated}; всего в API: {len(items)}")
+          PY
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet || (git commit -m "Automatic Avito catalog sync" && git push)
