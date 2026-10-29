@@ -191,6 +191,7 @@ async function shareProduct(button){
  }catch(e){
   prompt('Скопируйте ссылку:',url);
  }
+}
 function render(){
  let list=products.filter(p=>{
   const q=$('search').value.toLowerCase();
