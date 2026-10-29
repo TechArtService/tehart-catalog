@@ -36,7 +36,47 @@ h2{font-size:17px;line-height:1.35;margin:0}.price{font-size:22px;font-weight:bo
   margin-top: auto;
 }
 
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: auto;
+}
+
 .actions .btn {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: center;
+  padding: 11px 10px;
+  border: 1px solid #8e7040;
+  border-radius: 6px;
+  text-decoration: none;
+  font-weight: bold;
+  background: #1c1e21;
+  color: #f5f5f5;
+  transition: background .2s, border-color .2s;
+}
+
+.actions .btn:hover {
+  background: #34302a;
+  border-color: #d7ad62;
+}
+
+.actions .btn:not(.secondary) {
+  background: #d7ad62;
+  color: #171717;
+  border-color: #d7ad62;
+}
+
+.actions .btn:not(.secondary):hover {
+  background: #e7c27e;
+}
+
+.actions a[href*="max.ru"] {
+  background: #1c1e21;
+  color: #f5f5f5;
+  border-color: #d7ad62;
+}
   min-width: 0;
   flex: 1 1 auto;
 }
