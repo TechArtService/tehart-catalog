@@ -137,7 +137,7 @@ fillSelect('width','width',v=>v+'"');
 fillSelect('et','et',v=>'ET '+v);
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function money(v){let n=Number(String(v).replace(/[^\d.,]/g,'').replace(',','.'));return n>0?n.toLocaleString('ru-RU')+' ₽':(v?esc(v):'Цена по запросу')}
-function card(p){console.log('ID товара:', p.id);
+function card(p){
  const specs=[
   p.diameter?'Диаметр: R'+p.diameter:'',
   p.width?'Ширина: '+p.width:'',
