@@ -193,9 +193,6 @@ async function shareProduct(button){
  }
 }
 function render(){
- const sharedId=location.hash.startsWith('#product-')
-  :null;
-
  let list=products.filter(p=>{
   const q=$('search').value.toLowerCase();
   const hay=[p.title,p.brand,p.model,p.pcd,p.description,p.id].join(' ').toLowerCase();
