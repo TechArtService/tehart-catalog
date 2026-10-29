@@ -57,7 +57,18 @@ function fillSelect(id,key,label){
  values.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=label?label(v):v;$ (id).appendChild(o)});
 }
 fillSelect('diameter','diameter',v=>'R'+v);
-fillSelect('pcd','pcd');
+{
+ const patterns = [...new Set(products
+   .filter(p => clean(p.holes) && clean(p.pcd))
+   .map(p => clean(p.holes) + 'x' + clean(p.pcd)))]
+   .sort((a,b) => a.localeCompare(b,'ru',{numeric:true}));
+ patterns.forEach(v => {
+   const o = document.createElement('option');
+   o.value = v;
+   o.textContent = v.replace('x', '×');
+   $('pcd').appendChild(o);
+ });
+}
 fillSelect('width','width',v=>v+'"');
 fillSelect('et','et',v=>'ET '+v);
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -80,7 +91,8 @@ function render(){
   const hay=[p.title,p.brand,p.model,p.pcd,p.description,p.id].join(' ').toLowerCase();
   return (!q||hay.includes(q))&&
    (!$('diameter').value||clean(p.diameter)===$('diameter').value)&&
-   (!$('pcd').value||clean(p.pcd)===$('pcd').value)&&
+   (!$('pcd').value||
+    (clean(p.holes)+'x'+clean(p.pcd))===$('pcd').value)&&
    (!$('width').value||clean(p.width)===$('width').value)&&
    (!$('et').value||clean(p.et)===$('et').value);
  });
