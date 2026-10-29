@@ -29,7 +29,16 @@ input,select{width:100%;padding:12px;background:var(--panel);color:white;border:
 .body{padding:15px;display:flex;flex-direction:column;gap:10px;flex:1}
 h2{font-size:17px;line-height:1.35;margin:0}.price{font-size:22px;font-weight:bold;color:var(--gold)}
 .specs{font-size:13px;line-height:1.7;color:#d2d2d2}.muted{color:var(--muted)}
-.actions{display:flex;gap:8px;margin-top:auto}.btn{flex:1;text-align:center;padding:11px 6px;border-radius:6px;text-decoration:none;font-weight:bold;background:var(--gold);color:#171717}
+.actions{display:flex;gap:8px;margin-top:auto}.actions a[href*="max.ru"] {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  min-width: 65px;
+  background: #1687ff !important;
+  color: #fff !important;
+  position: relative;
+  z-index: 2;
+}.btn{flex:1;text-align:center;padding:11px 6px;border-radius:6px;text-decoration:none;font-weight:bold;background:var(--gold);color:#171717}
 .btn.secondary{background:#303236;color:white}.empty{padding:40px;text-align:center;color:var(--muted)}
 @media(max-width:500px){main{padding:14px}.photo{height:190px}}
 </style></head><body>
