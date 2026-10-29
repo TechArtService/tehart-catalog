@@ -151,10 +151,10 @@ function card(p){
   ?`<img loading="lazy" src="${esc(p.photos[0])}" alt="${esc(p.title)}" onerror="this.onerror=null;this.src='${esc(p.photos[1]||'')}';if(!this.src||this.src.endsWith('/'))this.parentElement.innerHTML='<span class=no-photo>Фото недоступно</span>'">`
   :'<span class="no-photo">Нет фото</span>';
 
- const shareUrl=p.url||window.location.href;
+ const shareUrl=window.location.origin+window.location.pathname+'#product-'+encodeURIComponent(p.id);
  const shareText=String(p.title||'Диск ТехАрт')+' — '+shareUrl;
 
- return `<article class="card">
+ return `<article class="card" id="product-${encodeURIComponent(p.id)}">
   <div class="photo">${photo}</div>
   <div class="body">
    <h2>${esc(p.title)}</h2>
@@ -209,6 +209,15 @@ function render(){
  });
  $('summary').textContent=`Найдено: ${list.length} из ${products.length} объявлений`;
  $('grid').innerHTML=list.length?list.map(card).join(''):'<div class="empty">Ничего не найдено. Измени параметры поиска.</div>';
+ $('grid').innerHTML=list.length?list.map(card).join(''):'<div class="empty">Ничего не найдено. Измени параметры поиска.</div>';
+
+ const sharedId=decodeURIComponent(location.hash.replace('#product-',''));
+ if(location.hash.startsWith('#product-')){
+  const productCard=document.getElementById('product-'+sharedId);
+  if(productCard){
+   productCard.scrollIntoView({behavior:'smooth',block:'center'});
+  }
+ }
 }
 ['search','diameter','pcd','width','et','sort'].forEach(id=>$(id).addEventListener(id==='search'?'input':'change',render));
 render();
