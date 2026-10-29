@@ -192,7 +192,20 @@ async function shareProduct(button){
   prompt('Скопируйте ссылку:',url);
  }
 }
-function render(){
+  
+function showSharedProduct(){
+ const match=location.hash.match(/^#product-(.+)$/);
+ if(!match)return;
+
+ const id=decodeURIComponent(match[1]);
+ const product=products.find(p=>String(p.id)===id);
+ if(!product)return;
+
+ $('grid').innerHTML=card(product);
+ $('summary').textContent='Выбранный товар';
+}
+
+  function render(){
  let list=products.filter(p=>{
   const q=$('search').value.toLowerCase();
   const hay=[p.title,p.brand,p.model,p.pcd,p.description,p.id].join(' ').toLowerCase();
@@ -216,4 +229,5 @@ function render(){
 }
 ['search','diameter','pcd','width','et','sort'].forEach(id=>$(id).addEventListener(id==='search'?'input':'change',render));
 render();
+showSharedProduct();
 </script></body></html>
