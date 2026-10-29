@@ -139,18 +139,58 @@ function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&l
 function money(v){let n=Number(String(v).replace(/[^\d.,]/g,'').replace(',','.'));return n>0?n.toLocaleString('ru-RU')+' ₽':(v?esc(v):'Цена по запросу')}
 function card(p){
  const specs=[
- p.diameter?'Диаметр: R'+p.diameter:'',
- p.width?'Ширина: '+p.width:'',
- p.pcd?'Сверловка: '+p.pcd:'',
- p.holes?'Количество отверстий: '+p.holes:'',
- p.et?'Вылет: ET '+p.et:'',
- p.dia?'DIA: '+p.dia:'',
+  p.diameter?'Диаметр: R'+p.diameter:'',
+  p.width?'Ширина: '+p.width:'',
+  p.pcd?'Сверловка: '+p.pcd:'',
+  p.holes?'Количество отверстий: '+p.holes:'',
+  p.et?'Вылет: ET '+p.et:'',
+  p.dia?'DIA: '+p.dia:'',
  ].filter(Boolean).map(esc).join('<br>');
- const photo=p.photos?.length?`<img loading="lazy" src="${esc(p.photos[0])}" alt="${esc(p.title)}" onerror="this.onerror=null;this.src='${esc(p.photos[1]||'')}';if(!this.src||this.src.endsWith('/'))this.parentElement.innerHTML='<span class=no-photo>Фото недоступно</span>'">`:'<span class="no-photo">Нет фото</span>';
- return `<article class="card"><div class="photo">${photo}</div><div class="body"><h2>${esc(p.title)}</h2><div class="price">${money(p.price)}</div><div class="specs">${specs||'<span class=muted>Характеристики не указаны</span>'}</div><div class="actions">${p.url?`<a class="btn" href="${esc(p.url)}" target="_blank" rel="noopener">На Авито</a>`:''}<a class="btn secondary" href="tel:+79692021112">Позвонить</a>
-<a class="btn secondary" href="https://t.me/TEXAPT" target="_blank" rel="noopener">Telegram</a>
-<a class="btn secondary" href="https://max.ru/u/f9LHodD0cOKkYI3dJJgM6xF9t7oEsk-4pNMxzrVsZAJHuUqazfsOMkepZ0U" target="_blank" rel="noopener">MAX</a></div></div></article>`;
+
+ const photo=p.photos?.length
+  ?`<img loading="lazy" src="${esc(p.photos[0])}" alt="${esc(p.title)}" onerror="this.onerror=null;this.src='${esc(p.photos[1]||'')}';if(!this.src||this.src.endsWith('/'))this.parentElement.innerHTML='<span class=no-photo>Фото недоступно</span>'">`
+  :'<span class="no-photo">Нет фото</span>';
+
+ const shareUrl=p.url||window.location.href;
+ const shareText=String(p.title||'Диск ТехАрт')+' — '+shareUrl;
+
+ return `<article class="card">
+  <div class="photo">${photo}</div>
+  <div class="body">
+   <h2>${esc(p.title)}</h2>
+   <div class="price">${money(p.price)}</div>
+   <div class="specs">${specs||'<span class=muted>Характеристики не указаны</span>'}</div>
+   <div class="actions">
+    ${p.url?`<a class="btn" href="${esc(p.url)}" target="_blank" rel="noopener">На Авито</a>`:''}
+    <a class="btn secondary" href="tel:+79692021112">Позвонить</a>
+    <a class="btn secondary" href="https://t.me/TEXAPT" target="_blank" rel="noopener">Telegram</a>
+    <a class="btn secondary" href="https://max.ru/u/f9LHodD0cOKkYI3dJJgM6xF9t7oEsk-4pNMxzrVsZAJHuUqazfsOMkepZ0U" target="_blank" rel="noopener">MAX</a>
+    <button class="btn secondary" type="button" onclick="shareProduct(this)" data-url="${esc(shareUrl)}" data-title="${esc(p.title||'Диск ТехАрт')}">Поделиться</button>
+   </div>
+  </div>
+ </article>`;
 }
+
+async function shareProduct(button){
+ const url=button.dataset.url;
+ const title=button.dataset.title||'Диск ТехАрт';
+
+ if(navigator.share){
+  try{
+   await navigator.share({title:title,text:title,url:url});
+   return;
+  }catch(e){
+   if(e.name==='AbortError')return;
+  }
+ }
+
+ try{
+  await navigator.clipboard.writeText(url);
+  button.textContent='Ссылка скопирована!';
+  setTimeout(()=>button.textContent='Поделиться',2000);
+ }catch(e){
+  prompt('Скопируйте ссылку:',url);
+ }
 function render(){
  let list=products.filter(p=>{
   const q=$('search').value.toLowerCase();
