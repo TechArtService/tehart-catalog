@@ -193,30 +193,39 @@ async function shareProduct(button){
  }
 }
 function render(){
+ const sharedId=location.hash.startsWith('#product-')
+  ?decodeURIComponent(location.hash.slice('#product-'.length))
+  :null;
+
  let list=products.filter(p=>{
+  if(sharedId)return String(p.id)===sharedId;
+
   const q=$('search').value.toLowerCase();
   const hay=[p.title,p.brand,p.model,p.pcd,p.description,p.id].join(' ').toLowerCase();
+
   return (!q||hay.includes(q))&&
    (!$('diameter').value||clean(p.diameter)===$('diameter').value)&&
-   (!$('pcd').value||
-    (clean(p.holes)+'x'+clean(p.pcd))===$('pcd').value)&&
+   (!$('pcd').value||(clean(p.holes)+'x'+clean(p.pcd))===$('pcd').value)&&
    (!$('width').value||clean(p.width)===$('width').value)&&
    (!$('et').value||clean(p.et)===$('et').value);
  });
+
  if($('sort').value!=='default')list.sort((a,b)=>{
   const price=p=>Number(String(p.price).replace(/[^\d]/g,''))||0;
   return $('sort').value==='asc'?price(a)-price(b):price(b)-price(a);
  });
- $('summary').textContent=`Найдено: ${list.length} из ${products.length} объявлений`;
- $('grid').innerHTML=list.length?list.map(card).join(''):'<div class="empty">Ничего не найдено. Измени параметры поиска.</div>';
- $('grid').innerHTML=list.length?list.map(card).join(''):'<div class="empty">Ничего не найдено. Измени параметры поиска.</div>';
 
- const sharedId=decodeURIComponent(location.hash.replace('#product-',''));
- if(location.hash.startsWith('#product-')){
-  const productCard=document.getElementById('product-'+sharedId);
-  if(productCard){
-   productCard.scrollIntoView({behavior:'smooth',block:'center'});
-  }
+ $('summary').textContent=sharedId
+  ?(list.length?'Выбранный товар':'Товар не найден')
+  :`Найдено: ${list.length} из ${products.length} объявлений`;
+
+ $('grid').innerHTML=list.length
+  ?list.map(card).join('')
+  :'<div class="empty">Товар не найден.</div>';
+
+ if(sharedId){
+  const productCard=$('grid').querySelector('.card');
+  if(productCard)productCard.scrollIntoView({block:'center'});
  }
 }
 ['search','diameter','pcd','width','et','sort'].forEach(id=>$(id).addEventListener(id==='search'?'input':'change',render));
