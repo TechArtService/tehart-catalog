@@ -193,7 +193,12 @@ async function shareProduct(button){
  }
 }
 function render(){
+ const sharedId=location.hash.startsWith('#product-')
+  ?decodeURIComponent(location.hash.slice('#product-'.length))
+  :null;
+
  let list=products.filter(p=>{
+  if(sharedId)return String(p.id)===sharedId;
   const q=$('search').value.toLowerCase();
   const hay=[p.title,p.brand,p.model,p.pcd,p.description,p.id].join(' ').toLowerCase();
 
