@@ -29,7 +29,22 @@ input,select{width:100%;padding:12px;background:var(--panel);color:white;border:
 .body{padding:15px;display:flex;flex-direction:column;gap:10px;flex:1}
 h2{font-size:17px;line-height:1.35;margin:0}.price{font-size:22px;font-weight:bold;color:var(--gold)}
 .specs{font-size:13px;line-height:1.7;color:#d2d2d2}.muted{color:var(--muted)}
-.actions{display:flex;gap:8px;margin-top:auto}.actions a[href*="max.ru"] {
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.actions .btn {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.actions a[href*="max.ru"] {
+  background: #1687ff;
+  color: #fff;
+}.actions a[href*="max.ru"] {
   display: inline-flex !important;
   align-items: center;
   justify-content: center;
