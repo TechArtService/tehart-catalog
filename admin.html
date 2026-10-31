@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ТехАрт — админ-панель</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#101216;color:#f4f5f7;font:15px Arial,sans-serif}.wrap{max-width:920px;margin:40px auto;padding:24px}.panel{background:#1b1f26;border:1px solid #343a44;border-radius:16px;padding:24px;margin:16px 0}h1{font-size:27px;margin:0 0 8px}p{color:#aeb6c2;line-height:1.5}input,button{font:inherit;border-radius:9px;padding:13px;border:1px solid #424a56}input{background:#11151b;color:white;width:100%;margin:10px 0}button{background:#d8e2f0;color:#101216;font-weight:700;cursor:pointer}button:disabled{opacity:.45;cursor:not-allowed}.muted{color:#9ca6b4}.hidden{display:none}.stats{display:flex;gap:12px;flex-wrap:wrap}.stat{background:#11151b;border-radius:10px;padding:14px;min-width:130px}.stat b{display:block;font-size:25px;margin-top:6px}.danger{color:#ffb2a8}.ok{color:#8fe0ac}pre{white-space:pre-wrap;word-break:break-word;background:#11151b;padding:14px;border-radius:10px;max-height:280px;overflow:auto}
+</style></head><body><div class="wrap"><h1>ТехАрт — управление каталогом</h1><p>Загрузка Excel-выгрузки Авито и предварительная проверка изменений.</p>
+<section id="login" class="panel"><h3>Вход администратора</h3><input id="password" type="password" placeholder="Пароль администратора"><button id="loginBtn">Войти</button><p id="loginMsg"></p></section>
+<section id="app" class="hidden"><div class="panel"><h3>1. Выберите Excel-файл Авито</h3><input id="file" type="file" accept=".xlsx,.xls"><p class="muted">Обрабатывается лист «Объявления». Файл читается в браузере; на сервер отправляются только строки каталога.</p><button id="previewBtn" disabled>Проверить изменения</button></div>
+<div id="report" class="panel hidden"><h3>2. Результат сравнения</h3><div id="stats" class="stats"></div><p class="danger">Объявления, отсутствующие в новой выгрузке, будут помечены как неактивные. Они не удаляются.</p><button id="applyBtn">Подтвердить и обновить каталог</button><p id="applyMsg"></p><pre id="details"></pre></div></section>
+</div>
+<script>
+let token="",rows=[];
+const $=id=>document.getElementById(id);
+async function api(path,data){
+ const r=await fetch(path,{method:data?"POST":"GET",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},body:data?JSON.stringify(data):undefined});
+ const j=await r.json();if(!r.ok)throw new Error(j.error||"Ошибка запроса");return j;
+}
+$("loginBtn").onclick=async()=>{try{const r=await fetch("/api/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password:$("password").value})});const j=await r.json();if(!r.ok)throw new Error(j.error);token=j.token;$("login").classList.add("hidden");$("app").classList.remove("hidden");$("loginMsg").textContent="";}catch(e){$("loginMsg").textContent=e.message;}};
+$("file").onchange=()=>{$("previewBtn").disabled=!$("file").files.length;};
+$("previewBtn").onclick=async()=>{
+ try{
+  const f=$("file").files[0],buf=await f.arrayBuffer(),wb=XLSX.read(buf,{type:"array"});
+  const sheet=wb.Sheets["Объявления"]||wb.Sheets[wb.SheetNames[0]];
+  rows=XLSX.utils.sheet_to_json(sheet,{defval:""});
+  if(!rows.length)throw new Error("В листе нет строк");
+  const d=await api("/api/preview",{rows});
+  $("report").classList.remove("hidden");
+  $("stats").innerHTML=[["Новых",d.added.length],["Изменённых",d.changed.length],["Без изменений",d.unchanged.length],["Станут неактивными",d.inactive.length]].map(x=>'<div class="stat">'+x[0]+'<b>'+x[1]+'</b></div>').join("");
+  $("details").textContent="Строк в Excel: "+rows.length+"\nОбъявлений с ID: "+(d.total)+"\n\nПервые новые: "+d.added.slice(0,8).map(x=>x.id+" — "+x.title).join("\n")+"\n\nПервые изменённые: "+d.changed.slice(0,8).map(x=>x.after.id+" — "+x.after.title).join("\n");
+  $("applyBtn").disabled=false;$("applyMsg").textContent="";
+ }catch(e){alert(e.message);}
+};
+$("applyBtn").onclick=async()=>{
+ if(!confirm("Подтвердить обновление каталога на сайте?"))return;
+ $("applyBtn").disabled=true;
+ try{const r=await api("/api/apply",{rows,confirm:true});$("applyMsg").className="ok";$("applyMsg").textContent="Готово. Коммит: "+r.commit+"; добавлено: "+r.added+", изменено: "+r.changed+", снято с публикации: "+r.inactivated+".";
+ }catch(e){$("applyMsg").className="danger";$("applyMsg").textContent=e.message;$("applyBtn").disabled=false;}
+};
+</script></body></html>
