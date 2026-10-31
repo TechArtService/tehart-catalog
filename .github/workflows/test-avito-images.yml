@@ -22,7 +22,7 @@ jobs:
           from urllib.parse import urlparse
 
           urls = [
-              "https://avito.ru/autoload/1/items-to-feed/images?imageSlug=/image/1/1.L0s1bLawg6ID2wGvZzxKEiPMgaKFxYuogw.uTXbzpEjHnvCksPaL7m7gVOrS-fR87gcbYc8363lR4A",
+              "https://avito.ru/autoload/1/items-to-feed/images?imageSlug=/image/1/1.L0s1bLawg6ID2wGvZzxKEiPMgaKFxYuogw.uTXbzpEjHnvCksPaQ7m7gVOrS-fR87gcbYc8363lR4A",
               "https://avito.ru/autoload/1/items-to-feed/images?imageSlug=/image/1/1.Pdbp3LawkT_faxMyn7QFiP98kz9ZdZk1Xw.JaYgQZYpKKtlWgEc5tGKSIxminXNBSfL3UT04hxXF40",
               "https://avito.ru/autoload/1/items-to-feed/images?imageSlug=/image/1/1.NWjRnbawmYHnKhuMt_lRMcc9m4FhNJGLZw.VeoJFTRmCRdQms6Ir9enHNnBYheo-CuQObpIAh2au1c",
           ]
