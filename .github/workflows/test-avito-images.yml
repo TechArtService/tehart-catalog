@@ -1,0 +1,55 @@
+name: Test Avito image links
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-images:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check sample image URLs from the latest export
+        run: |
+          python - <<'PY'
+          import requests
+          from urllib.parse import urlparse
+
+          urls = [
+              "https://avito.ru/autoload/1/items-to-feed/images?imageSlug=/image/1/1.L0s1bLawg6ID2wGvZzxKEiPMgaKFxYuogw.uTXbzpEjHnvCksPaL7m7gVOrS-fR87gcbYc8363lR4A",
+              "https://avito.ru/autoload/1/items-to-feed/images?imageSlug=/image/1/1.Pdbp3LawkT_faxMyn7QFiP98kz9ZdZk1Xw.JaYgQZYpKKtlWgEc5tGKSIxminXNBSfL3UT04hxXF40",
+              "https://avito.ru/autoload/1/items-to-feed/images?imageSlug=/image/1/1.NWjRnbawmYHnKhuMt_lRMcc9m4FhNJGLZw.VeoJFTRmCRdQms6Ir9enHNnBYheo-CuQObpIAh2au1c",
+          ]
+
+          session = requests.Session()
+          session.headers.update({
+              "User-Agent": "Mozilla/5.0 (compatible; TechArtCatalogImageCheck/1.0)",
+              "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+          })
+
+          failures = 0
+          for index, url in enumerate(urls, 1):
+              try:
+                  response = session.get(url, timeout=25, allow_redirects=True, stream=True)
+                  content_type = response.headers.get("Content-Type", "")
+                  content_length = response.headers.get("Content-Length", "unknown")
+                  first_bytes = next(response.iter_content(16), b"")
+                  is_image = response.status_code == 200 and content_type.lower().startswith("image/")
+                  print(f"IMAGE_{index}: status={response.status_code}; type={content_type}; bytes={content_length}; final_host={urlparse(response.url).netloc}; image={is_image}; signature={first_bytes[:12]!r}")
+                  if not is_image:
+                      failures += 1
+                  response.close()
+              except Exception as exc:
+                  failures += 1
+                  print(f"IMAGE_{index}: ERROR {type(exc).__name__}: {exc}")
+
+          print(f"RESULT: checked={len(urls)}; failed={failures}")
+          if failures:
+              raise SystemExit(1)
+          PY
