@@ -43,7 +43,8 @@ async function gh(path, env, options = {}) {
 }
 async function readCatalog(env) {
   const file = await gh(INDEX_PATH + "?ref=" + BRANCH, env);
-  const html = atob(file.content.replace(/\n/g,""));
+  const binary = atob(file.content.replace(/\n/g,""));
+  const html = new TextDecoder().decode(Uint8Array.from(binary, c => c.charCodeAt(0)));
   const match = html.match(/const products = (\[.*?\]);\s*\n/s);
   if (!match) throw new Error("Не удалось найти массив products в index.html");
   return { html, products: JSON.parse(match[1]), sha: file.sha };
