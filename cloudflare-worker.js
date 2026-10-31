@@ -101,6 +101,48 @@ async function handle(request, env) {
   }
   if (!url.pathname.startsWith("/api/")) return fetch(request);
   if (!await authorized(request,env)) return json({error:"Требуется вход"},401);
+  if (url.pathname === "/api/image-check" && request.method === "POST") {
+    const body = await request.json();
+    if (!Array.isArray(body.urls) || body.urls.length < 1 || body.urls.length > 3) {
+      return json({error:"Передайте от 1 до 3 ссылок"},400);
+    }
+    const results = await Promise.all(body.urls.map(async (raw) => {
+      try {
+        let target = new URL(String(raw));
+        const allowed = (u) => {
+          const h = u.hostname.toLowerCase();
+          return (h === "avito.ru" || h.endsWith(".avito.ru") || h === "avito.st" || h.endsWith(".avito.st")) &&
+            (u.protocol === "https:" || u.protocol === "http:") && !u.username && !u.password;
+        };
+        if (!allowed(target)) return {input:raw,error:"Недопустимый домен или протокол"};
+        let response;
+        for (let i=0; i<6; i++) {
+          response = await fetch(target.toString(), {
+            method:"GET", redirect:"manual",
+            headers:{"Range":"bytes=0-31","User-Agent":"Mozilla/5.0 (compatible; TechArtImageCheck/1.0)"}
+          });
+          if (![301,302,303,307,308].includes(response.status)) break;
+          const location = response.headers.get("Location");
+          if (!location) break;
+          const next = new URL(location,target);
+          if (!allowed(next)) return {input:raw,status:response.status,error:"Перенаправление на внешний домен заблокировано",redirect:next.hostname};
+          target = next;
+        }
+        if (!response) return {input:raw,error:"Не удалось выполнить запрос"};
+        const result = {
+          input:raw, status:response.status, finalUrl:target.toString(),
+          contentType:response.headers.get("Content-Type") || "",
+          contentLength:response.headers.get("Content-Length") || "",
+          contentRange:response.headers.get("Content-Range") || ""
+        };
+        try { await response.body?.cancel(); } catch {}
+        return result;
+      } catch(e) {
+        return {input:raw,error:e.message};
+      }
+    }));
+    return json({results});
+  }
   if (url.pathname === "/api/catalog" && request.method === "GET") {
     const c=await readCatalog(env); return json({count:c.products.length,products:c.products});
   }
