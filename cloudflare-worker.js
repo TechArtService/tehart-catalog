@@ -5,7 +5,7 @@ const enc = new TextEncoder();
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
-    status, headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" }
+    status, headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", "Access-Control-Allow-Origin": "https://techartservice.ru", "Access-Control-Allow-Headers": "Authorization, Content-Type", "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Vary": "Origin" }
   });
 }
 function b64u(bytes) {
@@ -91,6 +91,7 @@ function diff(oldProducts, incoming) {
   return {added,changed,unchanged,inactive,total:incoming.length};
 }
 async function handle(request, env) {
+  if (request.method === "OPTIONS") return new Response(null, {status:204, headers:{"Access-Control-Allow-Origin":"https://techartservice.ru","Access-Control-Allow-Headers":"Authorization, Content-Type","Access-Control-Allow-Methods":"GET, POST, OPTIONS","Access-Control-Max-Age":"86400","Vary":"Origin"}});
   const url = new URL(request.url);
   if (url.pathname === "/api/login" && request.method === "POST") {
     if (!env.ADMIN_PASSWORD) return json({error:"Не задан секрет ADMIN_PASSWORD"},500);
