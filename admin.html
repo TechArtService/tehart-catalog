@@ -9,13 +9,14 @@
 <div id="report" class="panel hidden"><h3>2. Результат сравнения</h3><div id="stats" class="stats"></div><p class="danger">Объявления, отсутствующие в новой выгрузке, будут помечены как неактивные. Они не удаляются.</p><button id="applyBtn">Подтвердить и обновить каталог</button><p id="applyMsg"></p><pre id="details"></pre></div></section>
 </div>
 <script>
+const API_BASE="https://tehart-admin.10000rpm.workers.dev";
 let token="",rows=[];
 const $=id=>document.getElementById(id);
 async function api(path,data){
- const r=await fetch(path,{method:data?"POST":"GET",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},body:data?JSON.stringify(data):undefined});
+ const r=await fetch(API_BASE+path,{method:data?"POST":"GET",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},body:data?JSON.stringify(data):undefined});
  const j=await r.json();if(!r.ok)throw new Error(j.error||"Ошибка запроса");return j;
 }
-$("loginBtn").onclick=async()=>{try{const r=await fetch("/api/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password:$("password").value})});const j=await r.json();if(!r.ok)throw new Error(j.error);token=j.token;$("login").classList.add("hidden");$("app").classList.remove("hidden");$("loginMsg").textContent="";}catch(e){$("loginMsg").textContent=e.message;}};
+$("loginBtn").onclick=async()=>{try{const r=await fetch(API_BASE+"/api/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password:$("password").value})});const j=await r.json();if(!r.ok)throw new Error(j.error);token=j.token;$("login").classList.add("hidden");$("app").classList.remove("hidden");$("loginMsg").textContent="";}catch(e){$("loginMsg").textContent=e.message;}};
 $("file").onchange=()=>{$("previewBtn").disabled=!$("file").files.length;};
 $("previewBtn").onclick=async()=>{
  try{
