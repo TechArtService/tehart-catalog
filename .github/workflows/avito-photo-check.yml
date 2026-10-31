@@ -1,0 +1,104 @@
+name: Avito Public Photo Check
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Inspect one public Avito listing for photo metadata
+        run: |
+          python - <<'PY'
+          import json
+          import re
+          from html.parser import HTMLParser
+          from urllib.parse import urlparse
+          import requests
+
+          url = "https://www.avito.ru/sankt-peterburg/zapchasti_i_aksessuary/litye_diski_ac_7.5r19_5114.3_8576973955"
+
+          class MetadataParser(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.images = []
+                  self.json_ld = []
+                  self.in_json_ld = False
+                  self.json_buffer = []
+
+              def handle_starttag(self, tag, attrs):
+                  attrs = dict(attrs)
+                  if tag == "meta":
+                      key = (attrs.get("property") or attrs.get("name") or "").lower()
+                      value = attrs.get("content", "")
+                      if key in ("og:image", "twitter:image") and value:
+                          self.images.append(value)
+                  if tag == "script" and attrs.get("type") == "application/ld+json":
+                      self.in_json_ld = True
+                      self.json_buffer = []
+
+              def handle_data(self, data):
+                  if self.in_json_ld:
+                      self.json_buffer.append(data)
+
+              def handle_endtag(self, tag):
+                  if tag == "script" and self.in_json_ld:
+                      self.json_ld.append("".join(self.json_buffer))
+                      self.in_json_ld = False
+
+          headers = {
+              "User-Agent": "Mozilla/5.0 (compatible; TechArtCatalogPhotoCheck/1.0)",
+              "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8",
+          }
+          response = requests.get(url, headers=headers, timeout=30)
+          print("PAGE HTTP:", response.status_code)
+          print("FINAL HOST:", urlparse(response.url).netloc)
+          print("CONTENT TYPE:", response.headers.get("content-type", ""))
+          print("HTML BYTES:", len(response.content))
+          response.raise_for_status()
+
+          parser = MetadataParser()
+          parser.feed(response.text)
+
+          candidates = list(parser.images)
+          for raw in parser.json_ld:
+              try:
+                  obj = json.loads(raw)
+                  stack = obj if isinstance(obj, list) else [obj]
+                  while stack:
+                      item = stack.pop()
+                      if isinstance(item, dict):
+                          image = item.get("image")
+                          if isinstance(image, str):
+                              candidates.append(image)
+                          elif isinstance(image, list):
+                              candidates.extend(x for x in image if isinstance(x, str))
+                          elif isinstance(image, dict) and isinstance(image.get("url"), str):
+                              candidates.append(image["url"])
+                          stack.extend(v for v in item.values() if isinstance(v, (dict, list)))
+                      elif isinstance(item, list):
+                          stack.extend(item)
+              except Exception:
+                  pass
+
+          cdn_urls = re.findall(
+              r'https?://[^"\\s<>]+(?:avito\\.st|avito\\.ru|avito\\.net)[^"\\s<>]*',
+              response.text,
+              flags=re.I,
+          )
+          all_urls = list(dict.fromkeys(candidates + cdn_urls))
+          print("OG/TWITTER/JSONLD IMAGE COUNT:", len(set(candidates)))
+          print("AVITO CDN URL COUNT:", len(set(cdn_urls)))
+          print("UNIQUE IMAGE CANDIDATES:", len(all_urls))
+          for image in all_urls[:8]:
+              print("IMAGE CANDIDATE:", image[:500])
+          print("PHOTO CHECK FINISHED. No catalog files were read or changed.")
+          PY
