@@ -6,24 +6,21 @@ on:
     - cron: "0 */3 * * *"
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install requests python-dotenv
+        run: pip install requests
 
-      - name: Sync catalog
+      - name: Check detailed Avito item endpoint
         env:
           AVITO_CLIENT_ID: ${{ secrets.AVITO_CLIENT_ID }}
           AVITO_CLIENT_SECRET: ${{ secrets.AVITO_CLIENT_SECRET }}
@@ -41,38 +38,35 @@ jobs:
               timeout=30,
           )
           auth.raise_for_status()
-          token = auth.json()["access_token"]
-          headers = {"Authorization": f"Bearer {token}"}
+          headers = {"Authorization": f"Bearer {auth.json()['access_token']}"}
 
-          items = []
-          page = 1
-          while True:
-              response = requests.get(
-                  "https://api.avito.ru/core/v1/items",
-                  headers=headers,
-                  params={"per_page": 99, "page": page, "status": "active"},
-                  timeout=30,
-              )
-              response.raise_for_status()
-              batch = response.json().get("resources", [])
-              if not batch:
-                  break
-              items.extend(batch)
-              if len(batch) < 99:
-                  break
-              page += 1
+          account = requests.get(
+              "https://api.avito.ru/core/v1/accounts/self",
+              headers=headers,
+              timeout=30,
+          )
+          print("ACCOUNT HTTP:", account.status_code)
+          account.raise_for_status()
+          account_data = account.json()
+          user_id = account_data.get("id")
+          if not user_id:
+              raise RuntimeError("В ответе accounts/self не найден id")
 
-          print("=== ПРОВЕРКА ДАННЫХ AVITO API ===")
-          print("Всего объявлений:", len(items))
-          if items:
-              first = items[0]
-              print("Поля первого объявления:", list(first.keys()))
-              print("Данные первого объявления:")
-              print(json.dumps(first, ensure_ascii=False, indent=2))
-          print("=== КОНЕЦ ПРОВЕРКИ ===")
-          print("Диагностический запуск завершён. Каталог не изменялся.")
+          item_id = 8576973955
+          detail = requests.get(
+              f"https://api.avito.ru/core/v1/accounts/{user_id}/items/{item_id}/",
+              headers=headers,
+              timeout=30,
+          )
+          print("DETAIL HTTP:", detail.status_code)
+          print("DETAIL RESPONSE:")
+          try:
+              data = detail.json()
+              print(json.dumps(data, ensure_ascii=False, indent=2))
+              if isinstance(data, dict):
+                  print("DETAIL FIELDS:", list(data.keys()))
+          except ValueError:
+              print(detail.text[:3000])
+          detail.raise_for_status()
+          print("Проверка завершена. Каталог не изменялся.")
           PY
-
-      - name: Commit and push changes
-        run: |
-          echo "Диагностический запуск: изменений каталога нет."
