@@ -15,6 +15,9 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install dependencies
+        run: pip install requests
+
       - name: Inspect one public Avito listing for photo metadata
         run: |
           python - <<'PY'
