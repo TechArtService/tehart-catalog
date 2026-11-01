@@ -210,28 +210,45 @@ async function handle(request, env) {
     if (!tokenData.access_token) return json({ok:false,stage:"token",error:"Нет access_token"},502);
     const authHeaders = {"Authorization":"Bearer "+tokenData.access_token,"Accept":"application/json"};
     const endpoints = [
-      {name:"uploads",url:"https://api.avito.ru/autoload/v4/uploads?perPage=1&page=1"},
+      {name:"uploads",url:"https://api.avito.ru/autoload/v4/uploads?perPage=1&page=1",collection:"uploads"},
       {name:"lastSuccessful",url:"https://api.avito.ru/autoload/v4/uploads/last_successful"},
-      {name:"lastSuccessfulItems",url:"https://api.avito.ru/autoload/v4/uploads/last_successful/items?perPage=1&page=1"}
+      {name:"lastSuccessfulItems",url:"https://api.avito.ru/autoload/v4/uploads/last_successful/items?perPage=1&page=1",collection:"items"}
     ];
+    const describe = (value) => {
+      if (Array.isArray(value)) {
+        const first = value[0];
+        return {type:"array",length:value.length,itemKeys:first && typeof first === "object" ? Object.keys(first) : [],itemType:first === null ? "null" : typeof first};
+      }
+      if (value && typeof value === "object") return {type:"object",keys:Object.keys(value)};
+      return {type:value === null ? "null" : typeof value};
+    };
     const checks = {};
     for (const endpoint of endpoints) {
       try {
         const response = await fetch(endpoint.url,{headers:authHeaders});
         const body = await response.json().catch(()=>({}));
-        checks[endpoint.name] = {
+        const result = {
           httpStatus:response.status,
           ok:response.ok,
-          responseKeys:body && typeof body === "object" ? Object.keys(body) : [],
-          metaKeys:body && body.meta ? Object.keys(body.meta) : [],
-          resourcesCount:Array.isArray(body.resources) ? body.resources.length : null,
-          sampleFieldNames:Array.isArray(body.resources) && body.resources[0] && typeof body.resources[0] === "object" ? Object.keys(body.resources[0]) : Object.keys(body).filter(k=>!["events","sections_stats","listing_fees"].includes(k))
+          responseKeys:body && typeof body === "object" ? Object.keys(body) : []
         };
+        if (endpoint.collection) {
+          const records = Array.isArray(body[endpoint.collection]) ? body[endpoint.collection] : [];
+          result.collectionKey = endpoint.collection;
+          result.collectionCount = records.length;
+          result.metaKeys = body.meta && typeof body.meta === "object" ? Object.keys(body.meta) : [];
+          result.sampleFieldNames = records[0] && typeof records[0] === "object" ? Object.keys(records[0]) : [];
+          result.sampleShape = records[0] && typeof records[0] === "object"
+            ? Object.fromEntries(Object.entries(records[0]).map(([key,value])=>[key,describe(value)])) : {};
+        } else if (body && typeof body === "object") {
+          result.fieldShapes = Object.fromEntries(Object.entries(body).map(([key,value])=>[key,describe(value)]));
+        }
+        checks[endpoint.name] = result;
       } catch(e) {
         checks[endpoint.name] = {ok:false,error:e.message};
       }
     }
-    return json({ok:true,stage:"autoload_check",accountId:167633163,checks});
+    return json({ok:true,stage:"autoload_check",checks});
   }
   if (url.pathname === "/api/resolve-photos" && request.method === "POST") {
     const body = await request.json();
