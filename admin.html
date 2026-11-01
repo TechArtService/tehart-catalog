@@ -3,9 +3,9 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#101216;color:#f4f5f7;font:15px Arial,sans-serif}.wrap{max-width:920px;margin:40px auto;padding:24px}.panel{background:#1b1f26;border:1px solid #343a44;border-radius:16px;padding:24px;margin:16px 0}h1{font-size:27px;margin:0 0 8px}p{color:#aeb6c2;line-height:1.5}input,button{font:inherit;border-radius:9px;padding:13px;border:1px solid #424a56}input{background:#11151b;color:white;width:100%;margin:10px 0}button{background:#d8e2f0;color:#101216;font-weight:700;cursor:pointer}button:disabled{opacity:.45;cursor:not-allowed}.muted{color:#9ca6b4}.hidden{display:none}.stats{display:flex;gap:12px;flex-wrap:wrap}.stat{background:#11151b;border-radius:10px;padding:14px;min-width:130px}.stat b{display:block;font-size:25px;margin-top:6px}.danger{color:#ffb2a8}.ok{color:#8fe0ac}pre{white-space:pre-wrap;word-break:break-word;background:#11151b;padding:14px;border-radius:10px;max-height:280px;overflow:auto}
-</style></head><body><div class="wrap"><h1>ТехАрт — управление каталогом</h1><p>Загрузка Excel-выгрузки Авито и предварительная проверка изменений.</p>
+</style></head><body><div class="wrap"><h1>ТехАрт — управление каталогом</h1><p>Ручная загрузка каталога из Excel. Avito API не используется.</p>
 <section id="login" class="panel"><h3>Вход администратора</h3><input id="password" type="password" placeholder="Пароль администратора"><button id="loginBtn">Войти</button><p id="loginMsg"></p></section>
-<section id="app" class="hidden"><div class="panel"><h3>Подключение Avito API</h3><p class="muted">Безопасная проверка персонального приложения: токен, профиль и чтение объявлений.</p><button id="avitoCheckBtn">Проверить подключение Avito</button> <button id="autoloadCheckBtn">Проверить Autoload API</button><p id="avitoCheckMsg"></p><pre id="avitoCheckDetails"></pre><p id="autoloadCheckMsg"></p><pre id="autoloadCheckDetails"></pre></div><div class="panel"><h3>1. Выберите Excel-файл Авито</h3><input id="file" type="file" accept=".xlsx,.xls"><p class="muted">Обрабатывается лист «Объявления». Файл читается в браузере; на сервер отправляются только строки каталога.</p><button id="previewBtn" disabled>Проверить изменения</button><p id="resolverMsg" class="muted"></p></div>
+<section id="app" class="hidden"><div class="panel"><h3>1. Выберите Excel-файл</h3><input id="file" type="file" accept=".xlsx,.xls"><p class="muted">Обрабатывается лист «Объявления». Файл читается в браузере; на сервер отправляются только строки каталога. В столбце ImageUrls укажите прямые публичные ссылки на фотографии через символ |.</p><button id="previewBtn" disabled>Проверить изменения</button><p id="resolverMsg" class="muted"></p></div>
 <div id="report" class="panel hidden"><h3>2. Результат сравнения</h3><div id="stats" class="stats"></div><p class="danger">Объявления, отсутствующие в новой выгрузке, будут помечены как неактивные. Они не удаляются.</p><button id="applyBtn">Подтвердить и обновить каталог</button><p id="applyMsg"></p><pre id="details"></pre></div></section>
 </div>
 <script>
@@ -26,58 +26,13 @@ $("previewBtn").onclick=async()=>{
   const sheet=wb.Sheets["Объявления"]||wb.Sheets[wb.SheetNames[0]];
   rows=XLSX.utils.sheet_to_json(sheet,{defval:""});
   if(!rows.length)throw new Error("В листе нет строк");
-  // Превращаем служебные Avito autoload-ссылки в прямые CDN-адреса до отправки каталога.
+  // Ручной импорт: фотографии берём из прямых публичных ссылок в Excel.
   const photoField = row => Object.prototype.hasOwnProperty.call(row,"ImageUrls") ? "ImageUrls" : "photos";
-  const unique = [...new Set(rows.flatMap(row => String(row[photoField(row)]||"").split("|").map(x=>x.trim()).filter(Boolean)))];
-  const mapping = new Map(), unresolved = [];
-  // Avito applies rate limits: request one image at a time and back off on HTTP 429.
-  for(let i=0;i<unique.length;i++){
-    const photoUrl=unique[i];
-    let item=null, lastError="";
-    for(let attempt=0;attempt<5;attempt++){
-      try{
-        const result=await api("/api/resolve-photos",{urls:[photoUrl]});
-        item=(result.results||[])[0]||null;
-        if(item && item.ok) break;
-        if(item && item.status===429){
-          const waitMs=Math.min(30000,3000*Math.pow(2,attempt));
-          $("resolverMsg").textContent="Avito ограничивает запросы. Пауза "+Math.ceil(waitMs/1000)+" сек. ("+(i+1)+" из "+unique.length+")";
-          await new Promise(resolve=>setTimeout(resolve,waitMs));
-          continue;
-        }
-        break;
-      }catch(e){
-        lastError=e.message;
-        const waitMs=Math.min(30000,2000*Math.pow(2,attempt));
-        $("resolverMsg").textContent="Повтор запроса фото "+(i+1)+" из "+unique.length+" через "+Math.ceil(waitMs/1000)+" сек.";
-        await new Promise(resolve=>setTimeout(resolve,waitMs));
-      }
-    }
-    if(item && item.ok) mapping.set(item.input,item.resolved);
-    else if(photoUrl.includes("/autoload/")) unresolved.push(item||{input:photoUrl,error:lastError||"Не удалось разрешить ссылку"});
-    else mapping.set(photoUrl,photoUrl);
-    $("resolverMsg").textContent="Проверка фотографий: "+(i+1)+" из "+unique.length+"; успешно: "+mapping.size+"; ошибок: "+unresolved.length;
-    // Small steady interval prevents bursts even when Avito responds quickly.
-    if(i<unique.length-1) await new Promise(resolve=>setTimeout(resolve,1200));
-    // Stop early if Avito is still rate-limiting after retries; don't hammer the service.
-    if(item && item.status===429 && unresolved.length>=3){
-      unresolved.push(...unique.slice(i+1).filter(x=>x.includes("/autoload/")).map(input=>({input,error:"Проверка остановлена из-за ограничения Avito"})));
-      break;
-    }
-  }
-  if(unresolved.length){
-    $("resolverMsg").className="danger";
-    $("resolverMsg").textContent="Не удалось получить прямые ссылки для "+unresolved.length+" фото. Импорт остановлен, каталог не изменён. Повторите проверку позже.";
-    $("details").textContent=unresolved.slice(0,20).map(x=>x.input+" — "+x.error+" (HTTP "+(x.status||"—")+")").join("\\n");
-    $("report").classList.remove("hidden");
-    throw new Error("Не все фотографии удалось разрешить; импортировать неполный каталог небезопасно.");
-  }
-  for(const row of rows){
-    const field=photoField(row);
-    row[field]=String(row[field]||"").split("|").map(x=>mapping.get(x.trim())||x.trim()).join("|");
-  }
+  const photoCount = rows.reduce((n,row)=>n+String(row[photoField(row)]||"").split("|").filter(x=>x.trim()).length,0);
+  $("resolverMsg").className="muted";
+  $("resolverMsg").textContent="Фотографии из Excel: "+photoCount+". Проверяю строки каталога…";
   $("resolverMsg").className="ok";
-  $("resolverMsg").textContent="Фотографии проверены: "+mapping.size+". Формирую сравнение каталога…";
+  $("resolverMsg").textContent="Ссылки на фотографии взяты из Excel. Формирую сравнение каталога…";
   const d=await api("/api/preview",{rows});
   $("report").classList.remove("hidden");
   $("stats").innerHTML=[["Новых",d.added.length],["Изменённых",d.changed.length],["Без изменений",d.unchanged.length],["Станут неактивными",d.inactive.length]].map(x=>'<div class="stat">'+x[0]+'<b>'+x[1]+'</b></div>').join("");
