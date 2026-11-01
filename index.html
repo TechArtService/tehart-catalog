@@ -382,6 +382,7 @@ function showSharedProduct(){
  const wheelFiltersActive=['diameter','pcd','width','et','dia'].some(id=>Boolean($(id).value));
  const tireFiltersActive=['tireBrand','tireWidth','tireProfile','tireDiameter','tireSeason'].some(id=>Boolean($(id).value));
  let list=products.filter(p=>{
+  if(p.status==='inactive')return false;
   const q=$('search').value.toLowerCase();
   const hay=[p.title,p.brand,p.model,p.pcd,p.description,p.id].join(' ').toLowerCase();
   const tire=isTireProduct(p);
