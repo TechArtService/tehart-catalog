@@ -224,10 +224,12 @@ async function handle(request, env) {
       return {type:value === null ? "null" : typeof value};
     };
     const checks = {};
+    let autoloadProfile = null;
     for (const endpoint of endpoints) {
       try {
         const response = await fetch(endpoint.url,{headers:authHeaders});
         const body = await response.json().catch(()=>({}));
+        if (endpoint.name === "profile" && response.ok) autoloadProfile = body;
         const result = {
           httpStatus:response.status,
           ok:response.ok,
@@ -304,7 +306,66 @@ async function handle(request, env) {
     } catch(e) {
       feedCheck = {available:true,checked:false,reason:"Не удалось безопасно проверить фид",errorType:e.name||"Error"};
     }
-    return json({ok:true,stage:"autoload_check",checks,feedCheck});
+    // Отдельно проверяем feeds_data из профиля: это источник, настроенный в Autoload,
+    // а feed_urls в отчёте последней загрузки может указывать на другой адрес.
+    let profileFeedCheck = {available:false,reason:"В профиле не найден feeds_data"};
+    try {
+      const configuredFeeds = Array.isArray(autoloadProfile?.feeds_data) ? autoloadProfile.feeds_data : [];
+      profileFeedCheck = {
+        available: configuredFeeds.length > 0,
+        count: configuredFeeds.length,
+        itemKeys: configuredFeeds[0] && typeof configuredFeeds[0] === "object" ? Object.keys(configuredFeeds[0]) : [],
+        checked: false
+      };
+      const configured = configuredFeeds.find(item => item && typeof item.feed_url === "string" && item.feed_url.trim());
+      if (configured) {
+        const sourceUrl = new URL(configured.feed_url);
+        const host = sourceUrl.hostname.toLowerCase();
+        const unsafeHost = !host || host === "localhost" || host.endsWith(".localhost") ||
+          host.endsWith(".local") || /^\\d{1,3}(\\.\\d{1,3}){3}$/.test(host) ||
+          host === "[::1]" || host.includes(":");
+        if (sourceUrl.protocol !== "https:" || sourceUrl.username || sourceUrl.password || unsafeHost ||
+            (sourceUrl.port && sourceUrl.port !== "443")) {
+          profileFeedCheck.reason = "Источник не прошёл безопасную проверку HTTPS/host";
+        } else {
+          const sourceResponse = await fetch(sourceUrl.toString(), {
+            method:"GET", redirect:"manual",
+            headers:{"Range":"bytes=0-8191","User-Agent":"TechArt-Feed-Diagnostic/1.0"}
+          });
+          const sourceType = sourceResponse.headers.get("Content-Type") || "";
+          let sample = "";
+          if (sourceResponse.body) {
+            const reader = sourceResponse.body.getReader();
+            const chunks = [];
+            let total = 0;
+            while (total < 8192) {
+              const part = await reader.read();
+              if (part.done) break;
+              const chunk = part.value.slice(0,8192-total);
+              chunks.push(chunk); total += chunk.length;
+              if (chunk.length < part.value.length) break;
+            }
+            try { await reader.cancel(); } catch {}
+            const joined = new Uint8Array(total);
+            let offset = 0;
+            for (const chunk of chunks) { joined.set(chunk,offset); offset += chunk.length; }
+            sample = new TextDecoder("utf-8",{fatal:false}).decode(joined);
+          }
+          const looksXml = /<\\?xml|<Ads\\b|<Ad\\b|<items?\\b/i.test(sample);
+          const looksCsv = /(^|\\n)[^<\\r\\n]+[,;][^<\\r\\n]+/.test(sample);
+          profileFeedCheck = {
+            available:true, count:configuredFeeds.length, itemKeys:profileFeedCheck.itemKeys,
+            checked:true, httpStatus:sourceResponse.status, redirected:[301,302,303,307,308].includes(sourceResponse.status),
+            contentType:sourceType, sampleBytes:new TextEncoder().encode(sample).length,
+            format:looksXml?"xml":looksCsv?"csv_or_delimited":sample.trim().startsWith("{")?"json":"unknown",
+            looksLikeAvitoFeed:looksXml || looksCsv
+          };
+        }
+      }
+    } catch(e) {
+      profileFeedCheck = {available:true,checked:false,reason:"Не удалось безопасно проверить источник профиля",errorType:e.name||"Error"};
+    }
+    return json({ok:true,stage:"autoload_check",checks,feedCheck,profileFeedCheck});
   }
   if (url.pathname === "/api/resolve-photos" && request.method === "POST") {
     const body = await request.json();
