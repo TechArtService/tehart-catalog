@@ -33,7 +33,7 @@ $("previewBtn").onclick=async()=>{
   $("resolverMsg").className="muted";
   $("resolverMsg").textContent="Фотографии из Excel: "+photoCount+". Проверяю строки каталога…";
   $("resolverMsg").className="ok";
-  $("resolverMsg").textContent="Ссылки на фотографии взяты из Excel. Формирую сравнение каталога…";
+  $("resolverMsg").textContent="Ссылок на фотографии найдено в Excel: "+photoCount+". Формирую сравнение каталога…";
   const d=await api("/api/preview",{rows});
   $("report").classList.remove("hidden");
   $("stats").innerHTML=[["Новых",d.added.length],["Изменённых",d.changed.length],["Без изменений",d.unchanged.length],["Станут неактивными",d.inactive.length]].map(x=>'<div class="stat">'+x[0]+'<b>'+x[1]+'</b></div>').join("");
