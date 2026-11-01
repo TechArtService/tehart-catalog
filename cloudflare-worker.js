@@ -115,6 +115,57 @@ async function handle(request, env) {
   }
   if (!url.pathname.startsWith("/api/")) return fetch(request);
   if (!await authorized(request,env)) return json({error:"Требуется вход"},401);
+  if (url.pathname === "/api/avito-auth-check" && request.method === "POST") {
+    const clientId = env.AVITO_PERSONAL_CLIENT_ID;
+    const clientSecret = env.AVITO_PERSONAL_CLIENT_SECRET;
+    if (!clientId || !clientSecret) {
+      return json({ok:false, stage:"configuration", error:"Не заданы AVITO_PERSONAL_CLIENT_ID и/или AVITO_PERSONAL_CLIENT_SECRET"},500);
+    }
+
+    const tokenResponse = await fetch("https://api.avito.ru/token/", {
+      method:"POST",
+      headers:{"Content-Type":"application/x-www-form-urlencoded","Accept":"application/json"},
+      body:new URLSearchParams({
+        grant_type:"client_credentials",
+        client_id:clientId,
+        client_secret:clientSecret
+      })
+    });
+    if (!tokenResponse.ok) {
+      return json({ok:false,stage:"token",httpStatus:tokenResponse.status,error:"Avito не выдал токен. Проверьте ключи и доступ приложения."},502);
+    }
+    const tokenData = await tokenResponse.json();
+    if (!tokenData.access_token) {
+      return json({ok:false,stage:"token",error:"В ответе Avito отсутствует access_token"},502);
+    }
+
+    const accountResponse = await fetch("https://api.avito.ru/core/v1/accounts/self", {
+      headers:{"Authorization":"Bearer "+tokenData.access_token,"Accept":"application/json"}
+    });
+    if (!accountResponse.ok) {
+      return json({ok:false,stage:"account",httpStatus:accountResponse.status,error:"Токен получен, но запрос профиля не прошёл."},502);
+    }
+    const account = await accountResponse.json();
+
+    const itemsResponse = await fetch("https://api.avito.ru/core/v1/items?per_page=1", {
+      headers:{"Authorization":"Bearer "+tokenData.access_token,"Accept":"application/json"}
+    });
+    if (!itemsResponse.ok) {
+      return json({ok:false,stage:"items",httpStatus:itemsResponse.status,accountCheck:"ok",error:"Профиль доступен, но чтение объявлений не разрешено или завершилось ошибкой."},502);
+    }
+    const items = await itemsResponse.json();
+    const list = Array.isArray(items.resources) ? items.resources : (Array.isArray(items.items) ? items.items : []);
+    return json({
+      ok:true,
+      stage:"complete",
+      tokenExpiresIn:Number(tokenData.expires_in)||86400,
+      accountId:account.id||account.user_id||null,
+      accountCheck:"ok",
+      itemsCheck:"ok",
+      sampleCount:list.length,
+      responseKeys:Object.keys(items)
+    });
+  }
   if (url.pathname === "/api/resolve-photos" && request.method === "POST") {
     const body = await request.json();
     if (!Array.isArray(body.urls) || body.urls.length < 1 || body.urls.length > 10) {
