@@ -55,7 +55,11 @@ main{max-width:1450px;margin:auto;padding:24px}
 .filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;margin-bottom:20px}
 .filter-group{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;border:1px solid #444;border-radius:8px;padding:12px;margin:0;min-width:0}
 .filter-group legend{padding:0 7px;color:var(--gold);font-size:13px}
-.filter-group[hidden]{display:none!important}
+.filter-group[hidden],#filterControls[hidden]{display:none!important}
+.category-switch{display:flex;gap:12px;margin:0 0 18px}
+.category-btn{flex:1;min-height:52px;padding:12px 18px;border:1px solid #8e7040;border-radius:8px;background:#d7ad62;color:#171717;font-size:16px;font-weight:bold;cursor:pointer}
+.category-btn:hover{background:#e7c27e}
+.category-btn.active{background:#303236;color:#fff;border-color:#d7ad62}
 input,select{width:100%;padding:12px;background:var(--panel);color:white;border:1px solid #444;border-radius:7px}
 .summary{color:var(--muted);margin:14px 0}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(245px,1fr));gap:16px}
 .card{background:var(--panel);border:1px solid #303236;border-radius:10px;overflow:hidden;display:flex;flex-direction:column}
@@ -140,16 +144,20 @@ h2{font-size:17px;line-height:1.35;margin:0}.price{font-size:22px;font-weight:bo
   </div>
 </header>
 <main>
-<div class="filters">
+<div class="category-switch">
+<button type="button" class="category-btn" id="showTires">Смотреть шины</button>
+<button type="button" class="category-btn" id="showWheels">Смотреть диски</button>
+</div>
+<select id="productType" hidden><option value="all">Все товары</option><option value="wheels">Диски</option><option value="tires">Шины</option></select>
+<div class="filters" id="filterControls" hidden>
 <input id="search" placeholder="Поиск по названию, марке...">
-<select id="productType"><option value="all">Все товары</option><option value="wheels">Диски</option><option value="tires">Шины</option></select>
-<fieldset class="filter-group" id="wheelFilters"><legend>Фильтры дисков</legend>
+<fieldset class="filter-group" id="wheelFilters" hidden><legend>Фильтры дисков</legend>
 <select id="diameter"><option value="">Любой диаметр</option></select>
 <select id="pcd"><option value="">Любая сверловка</option></select>
 <select id="width"><option value="">Любая ширина</option></select>
 <select id="et"><option value="">Любой вылет ET</option></select>
 </fieldset>
-<fieldset class="filter-group" id="tireFilters"><legend>Фильтры шин</legend>
+<fieldset class="filter-group" id="tireFilters" hidden><legend>Фильтры шин</legend>
 <select id="tireBrand"><option value="">Любой бренд</option></select>
 <select id="tireWidth"><option value="">Любая ширина</option></select>
 <select id="tireProfile"><option value="">Любой профиль</option></select>
@@ -157,6 +165,7 @@ h2{font-size:17px;line-height:1.35;margin:0}.price{font-size:22px;font-weight:bo
 <select id="tireSeason"><option value="">Любой сезон</option><option value="Летние">Летние</option><option value="Зимние">Зимние</option><option value="Всесезонные">Всесезонные</option><option value="Не указано">Сезон не указан</option></select>
 </fieldset>
 <select id="sort"><option value="default">По умолчанию</option><option value="asc">Сначала дешевле</option><option value="desc">Сначала дороже</option></select>
+</div>
 </div>
 <div class="summary" id="summary"></div>
 <div class="grid" id="grid"></div>
@@ -219,13 +228,22 @@ fillValues('tireBrand',tireProducts.map(p=>clean(p.brand)));
 fillValues('tireWidth',tireProducts.flatMap(p=>tireInfo(p).sizes.map(x=>x.width)));
 fillValues('tireProfile',tireProducts.flatMap(p=>tireInfo(p).sizes.map(x=>x.profile)));
 fillValues('tireDiameter',tireProducts.flatMap(p=>tireInfo(p).sizes.map(x=>x.diameter)),v=>'R'+v);
-$('productType').addEventListener('change',()=>{
- const type=$('productType').value;
- $('wheelFilters').hidden=type==='tires';
- $('tireFilters').hidden=type==='wheels';
+function clearCategoryFilters(){
+ ['diameter','pcd','width','et','tireBrand','tireWidth','tireProfile','tireDiameter','tireSeason','search'].forEach(id=>$(id).value='');
+}
+function chooseCategory(type){
+ clearCategoryFilters();
+ $('productType').value=type;
+ $('filterControls').hidden=false;
+ $('wheelFilters').hidden=type!=='wheels';
+ $('tireFilters').hidden=type!=='tires';
+ $('showTires').classList.toggle('active',type==='tires');
+ $('showWheels').classList.toggle('active',type==='wheels');
  updateFacetOptions();
  render();
-});
+}
+$('showTires').addEventListener('click',()=>chooseCategory('tires'));
+$('showWheels').addEventListener('click',()=>chooseCategory('wheels'));
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function money(v){let n=Number(String(v).replace(/[^\d.,]/g,'').replace(',','.'));return n>0?n.toLocaleString('ru-RU')+' ₽':(v?esc(v):'Цена по запросу')}
 function card(p){
