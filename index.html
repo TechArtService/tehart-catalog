@@ -7,49 +7,57 @@
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:#f5f5f5;font:15px Arial,sans-serif}
 header{padding:30px 5%;background:linear-gradient(120deg,#242424,#111);border-bottom:1px solid #38332a}
 .site-header {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 20px;
-  padding: 12px 5%;
-  background: #111214;
-  border-bottom: 1px solid #38332a;
+  gap: 22px;
+  padding: 17px 5%;
+  background: radial-gradient(ellipse at 18% 50%, rgba(215,173,98,.10), transparent 48%), linear-gradient(115deg, #202124 0%, #111214 68%);
+  border-bottom: 1px solid rgba(215,173,98,.35);
+  box-shadow: 0 8px 24px rgba(0,0,0,.22);
   text-align: left;
 }
-
+.site-header::after {
+  content: "";
+  position: absolute;
+  left: 5%;
+  bottom: -1px;
+  width: 92px;
+  height: 2px;
+  background: linear-gradient(90deg, #f0d69f, #b9873d);
+}
 .site-logo {
   display: block;
-  width: 100px;
+  width: 108px;
   max-width: 30%;
   height: auto;
   margin: 0;
   flex-shrink: 0;
+  filter: drop-shadow(0 3px 8px rgba(215,173,98,.13));
 }
-
+.site-brand { min-width: 0; }
 .site-brand-name {
-  font-size: 28px;
-  font-weight: bold;
-  color: var(--gold);
+  font-size: clamp(27px, 3vw, 36px);
+  line-height: 1.05;
+  font-weight: 800;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: #e5c17d;
+  text-shadow: 0 2px 14px rgba(215,173,98,.16);
 }
-
 .site-brand-subtitle {
-  margin-top: 5px;
-  font-size: 13px;
-  color: var(--muted);
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: #b9b3a7;
 }
-
 @media (max-width: 500px) {
-  .site-header {
-    gap: 12px;
-    padding: 10px 14px;
-  }
-
-  .site-logo {
-    width: 72px;
-  }
-
-  .site-brand-name {
-    font-size: 22px;
-  }
+  .site-header { gap: 13px; padding: 13px 14px; }
+  .site-logo { width: 76px; }
+  .site-brand-name { font-size: 23px; letter-spacing: .07em; }
+  .site-brand-subtitle { margin-top: 6px; font-size: 9px; letter-spacing: .11em; }
 }
 main{max-width:1450px;margin:auto;padding:24px}
 .filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;margin-bottom:20px}
