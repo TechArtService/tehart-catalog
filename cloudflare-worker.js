@@ -156,14 +156,29 @@ async function handle(request, env) {
     const items = await itemsResponse.json();
     const list = Array.isArray(items.resources) ? items.resources : (Array.isArray(items.items) ? items.items : []);
     const sample = list[0] || null;
-    const sampleShape = sample ? Object.fromEntries(Object.entries(sample).map(([key,value]) => {
+    const describe = (value) => {
       if (Array.isArray(value)) {
         const first = value[0];
-        return [key, {type:"array", length:value.length, itemKeys:first && typeof first === "object" ? Object.keys(first) : [], itemType:first === null ? "null" : typeof first}];
+        return {type:"array", length:value.length, itemKeys:first && typeof first === "object" ? Object.keys(first) : [], itemType:first === null ? "null" : typeof first};
       }
-      if (value && typeof value === "object") return [key, {type:"object", keys:Object.keys(value)}];
-      return [key, {type:value === null ? "null" : typeof value}];
-    })) : {};
+      if (value && typeof value === "object") return {type:"object", keys:Object.keys(value)};
+      return {type:value === null ? "null" : typeof value};
+    };
+    const sampleShape = sample ? Object.fromEntries(Object.entries(sample).map(([key,value]) => [key,describe(value)])) : {};
+    let detailCheck = "not_available";
+    let detailFieldNames = [];
+    let detailShape = {};
+    if (sample && sample.id && (account.id || account.user_id)) {
+      const detailResponse = await fetch("https://api.avito.ru/core/v1/accounts/" + encodeURIComponent(account.id || account.user_id) + "/items/" + encodeURIComponent(sample.id) + "/", {
+        headers:{"Authorization":"Bearer "+tokenData.access_token,"Accept":"application/json"}
+      });
+      detailCheck = detailResponse.ok ? "ok" : "http_" + detailResponse.status;
+      if (detailResponse.ok) {
+        const detail = await detailResponse.json();
+        detailFieldNames = Object.keys(detail);
+        detailShape = Object.fromEntries(Object.entries(detail).map(([key,value]) => [key,describe(value)]));
+      }
+    }
     return json({
       ok:true,
       stage:"complete",
@@ -175,7 +190,10 @@ async function handle(request, env) {
       responseKeys:Object.keys(items),
       pagination:items.meta ? Object.keys(items.meta) : [],
       sampleFieldNames:sample ? Object.keys(sample) : [],
-      sampleShape
+      sampleShape,
+      detailCheck,
+      detailFieldNames,
+      detailShape
     });
   }
   if (url.pathname === "/api/resolve-photos" && request.method === "POST") {
