@@ -154,7 +154,7 @@ h2{font-size:17px;line-height:1.35;margin:0}.price{font-size:22px;font-weight:bo
 <select id="tireWidth"><option value="">Любая ширина</option></select>
 <select id="tireProfile"><option value="">Любой профиль</option></select>
 <select id="tireDiameter"><option value="">Любой диаметр</option></select>
-<select id="tireSeason"><option value="">Любой сезон</option><option value="Летние">Летние</option><option value="Зимние">Зимние</option><option value="Всесезонные">Всесезонные</option></select>
+<select id="tireSeason"><option value="">Любой сезон</option><option value="Летние">Летние</option><option value="Зимние">Зимние</option><option value="Всесезонные">Всесезонные</option><option value="Не указано">Сезон не указан</option></select>
 </fieldset>
 <select id="sort"><option value="default">По умолчанию</option><option value="asc">Сначала дешевле</option><option value="desc">Сначала дороже</option></select>
 </div>
@@ -322,7 +322,7 @@ function showSharedProduct(){
    );
    if(($('tireWidth').value||$('tireProfile').value||$('tireDiameter').value)&&!matches.length)return false;
    if($('tireBrand').value&&clean(p.brand)!==$('tireBrand').value)return false;
-   if($('tireSeason').value&&info.season!==$('tireSeason').value)return false;
+   if($('tireSeason').value&&(info.season||'Не указано')!==$('tireSeason').value)return false;
   }
   return true;
  });
