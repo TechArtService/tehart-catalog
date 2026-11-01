@@ -524,9 +524,21 @@ async function handle(request, env) {
   }
   return json({error:"Неизвестный API маршрут"},404);
 }
+function withCors(response, request) {
+  const origin = request.headers.get("Origin") || "";
+  const allowed = new Set(["https://techartservice.ru", "https://www.techartservice.ru", "https://techartservice.github.io"]);
+  if (!allowed.has(origin)) return response;
+  const headers = new Headers(response.headers);
+  headers.set("Access-Control-Allow-Origin", origin);
+  headers.set("Access-Control-Allow-Headers", "Authorization, Content-Type");
+  headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  headers.set("Access-Control-Max-Age", "86400");
+  headers.append("Vary", "Origin");
+  return new Response(response.body, {status: response.status, statusText: response.statusText, headers});
+}
 export default {
   async fetch(request, env) {
-    try { return await handle(request,env); }
-    catch(e) { return json({error:e.message},500); }
+    try { return withCors(await handle(request,env), request); }
+    catch(e) { return withCors(json({error:e.message},500), request); }
   }
 };
