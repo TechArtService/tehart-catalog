@@ -155,6 +155,15 @@ async function handle(request, env) {
     }
     const items = await itemsResponse.json();
     const list = Array.isArray(items.resources) ? items.resources : (Array.isArray(items.items) ? items.items : []);
+    const sample = list[0] || null;
+    const sampleShape = sample ? Object.fromEntries(Object.entries(sample).map(([key,value]) => {
+      if (Array.isArray(value)) {
+        const first = value[0];
+        return [key, {type:"array", length:value.length, itemKeys:first && typeof first === "object" ? Object.keys(first) : [], itemType:first === null ? "null" : typeof first}];
+      }
+      if (value && typeof value === "object") return [key, {type:"object", keys:Object.keys(value)}];
+      return [key, {type:value === null ? "null" : typeof value}];
+    })) : {};
     return json({
       ok:true,
       stage:"complete",
@@ -163,7 +172,10 @@ async function handle(request, env) {
       accountCheck:"ok",
       itemsCheck:"ok",
       sampleCount:list.length,
-      responseKeys:Object.keys(items)
+      responseKeys:Object.keys(items),
+      pagination:items.meta ? Object.keys(items.meta) : [],
+      sampleFieldNames:sample ? Object.keys(sample) : [],
+      sampleShape
     });
   }
   if (url.pathname === "/api/resolve-photos" && request.method === "POST") {
