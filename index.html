@@ -223,6 +223,7 @@ $('productType').addEventListener('change',()=>{
  const type=$('productType').value;
  $('wheelFilters').hidden=type==='tires';
  $('tireFilters').hidden=type==='wheels';
+ updateFacetOptions();
  render();
 });
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -337,7 +338,56 @@ function showSharedProduct(){
   ?list.map(card).join('')
   :'<div class="empty">Ничего не найдено. Измени параметры поиска.</div>';
 }
-['search','diameter','pcd','width','et','tireBrand','tireWidth','tireProfile','tireDiameter','tireSeason','sort'].forEach(id=>$(id).addEventListener(id==='search'?'input':'change',render));
+function refreshFacet(id,values,label){
+ const select=$(id), selected=select.value, first=select.options[0].cloneNode(true);
+ select.replaceChildren(first);
+ [...new Set(values.filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b),'ru',{numeric:true})).forEach(value=>{
+  const option=document.createElement('option');
+  option.value=value;
+  option.textContent=label?label(value):value;
+  select.appendChild(option);
+ });
+ select.value=values.includes(selected)?selected:'';
+}
+function updateFacetOptions(){
+ const type=$('productType').value;
+ const query=$('search').value.toLowerCase();
+ const wheels=products.filter(p=>!isTireProduct(p)&&type!=='tires'&&
+  (!query||[p.title,p.brand,p.model,p.pcd,p.description,p.id].join(' ').toLowerCase().includes(query)));
+ const wheelKeys=['diameter','pcd','width','et'];
+ const wheelAvailable=(p,skip)=>wheelKeys.every(key=>{
+  if(key===skip||!$(key).value)return true;
+  if(key==='pcd')return (clean(p.holes)+'x'+clean(p.pcd))===$('pcd').value;
+  return clean(p[key])===$(key).value;
+ });
+ refreshFacet('diameter',wheels.filter(p=>wheelAvailable(p,'diameter')).map(p=>clean(p.diameter)),v=>'R'+v);
+ refreshFacet('pcd',wheels.filter(p=>wheelAvailable(p,'pcd')&&clean(p.holes)&&clean(p.pcd)).map(p=>clean(p.holes)+'x'+clean(p.pcd)),v=>v.replace('x','×'));
+ refreshFacet('width',wheels.filter(p=>wheelAvailable(p,'width')).map(p=>clean(p.width)),v=>v+'″');
+ refreshFacet('et',wheels.filter(p=>wheelAvailable(p,'et')).map(p=>clean(p.et)),v=>'ET '+v);
+
+ const tires=tireProducts.filter(p=>type!=='wheels'&&
+  (!query||[p.title,p.brand,p.model,p.description,p.id].join(' ').toLowerCase().includes(query)));
+ const sizeKeys=['tireWidth','tireProfile','tireDiameter'];
+ const tireSizes=(p,skip)=>tireInfo(p).sizes.filter(size=>
+  sizeKeys.every(key=>key===skip||!$(key).value||
+   size[key==='tireWidth'?'width':key==='tireProfile'?'profile':'diameter']===$(key).value)
+ );
+ const tireAvailable=(p,skip)=>tireSizes(p,skip).length>0&&
+  (!skip||skip==='tireBrand'||!$('tireBrand').value||clean(p.brand)===$('tireBrand').value)&&
+  (!skip||skip==='tireSeason'||!$('tireSeason').value||
+   (tireInfo(p).season||'Не указано')===$('tireSeason').value);
+ refreshFacet('tireBrand',tires.filter(p=>tireAvailable(p,'tireBrand')).map(p=>clean(p.brand)));
+ refreshFacet('tireWidth',tires.filter(p=>tireAvailable(p,'tireWidth')).flatMap(p=>tireSizes(p,'tireWidth').map(x=>x.width)));
+ refreshFacet('tireProfile',tires.filter(p=>tireAvailable(p,'tireProfile')).flatMap(p=>tireSizes(p,'tireProfile').map(x=>x.profile)));
+ refreshFacet('tireDiameter',tires.filter(p=>tireAvailable(p,'tireDiameter')).flatMap(p=>tireSizes(p,'tireDiameter').map(x=>x.diameter)),v=>'R'+v);
+ refreshFacet('tireSeason',tires.filter(p=>tireAvailable(p,'tireSeason')).map(p=>tireInfo(p).season||'Не указано'));
+}
+['search','diameter','pcd','width','et','tireBrand','tireWidth','tireProfile','tireDiameter','tireSeason'].forEach(id=>$(id).addEventListener(id==='search'?'input':'change',()=>{
+ updateFacetOptions();
+ render();
+}));
+$('sort').addEventListener('change',render);
+updateFacetOptions();
 render();
 showSharedProduct();
 </script></body></html>
