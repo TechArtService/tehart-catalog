@@ -53,6 +53,9 @@ header{padding:30px 5%;background:linear-gradient(120deg,#242424,#111);border-bo
 }
 main{max-width:1450px;margin:auto;padding:24px}
 .filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;margin-bottom:20px}
+.filter-group{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;border:1px solid #444;border-radius:8px;padding:12px;margin:0;min-width:0}
+.filter-group legend{padding:0 7px;color:var(--gold);font-size:13px}
+.filter-group[hidden]{display:none!important}
 input,select{width:100%;padding:12px;background:var(--panel);color:white;border:1px solid #444;border-radius:7px}
 .summary{color:var(--muted);margin:14px 0}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(245px,1fr));gap:16px}
 .card{background:var(--panel);border:1px solid #303236;border-radius:10px;overflow:hidden;display:flex;flex-direction:column}
@@ -139,10 +142,20 @@ h2{font-size:17px;line-height:1.35;margin:0}.price{font-size:22px;font-weight:bo
 <main>
 <div class="filters">
 <input id="search" placeholder="Поиск по названию, марке...">
+<select id="productType"><option value="all">Все товары</option><option value="wheels">Диски</option><option value="tires">Шины</option></select>
+<fieldset class="filter-group" id="wheelFilters"><legend>Фильтры дисков</legend>
 <select id="diameter"><option value="">Любой диаметр</option></select>
 <select id="pcd"><option value="">Любая сверловка</option></select>
 <select id="width"><option value="">Любая ширина</option></select>
 <select id="et"><option value="">Любой вылет ET</option></select>
+</fieldset>
+<fieldset class="filter-group" id="tireFilters"><legend>Фильтры шин</legend>
+<select id="tireBrand"><option value="">Любой бренд</option></select>
+<select id="tireWidth"><option value="">Любая ширина</option></select>
+<select id="tireProfile"><option value="">Любой профиль</option></select>
+<select id="tireDiameter"><option value="">Любой диаметр</option></select>
+<select id="tireSeason"><option value="">Любой сезон</option><option value="Летние">Летние</option><option value="Зимние">Зимние</option><option value="Всесезонные">Всесезонные</option></select>
+</fieldset>
 <select id="sort"><option value="default">По умолчанию</option><option value="asc">Сначала дешевле</option><option value="desc">Сначала дороже</option></select>
 </div>
 <div class="summary" id="summary"></div>
@@ -155,6 +168,37 @@ function clean(v){return String(v||'').trim()}
 function fillSelect(id,key,label){
  const values=[...new Set(products.map(p=>clean(p[key])).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ru',{numeric:true}));
  values.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=label?label(v):v;$ (id).appendChild(o)});
+}
+function isTireProduct(p){
+ const title=clean(p.title).toLowerCase();
+ if(/колес|диск/.test(title)) return false;
+ return /шин|tire|tyre/.test(title) || /\b\d{3}\s*\/\s*\d{2}\s*r\s*\d{2}\b/i.test(title) ||
+   /\b\d{2}(?:\.\d+)?\s*[x×/]\s*\d{1,2}(?:\.\d+)?\s*r\s*\d{2}\b/i.test(title);
+}
+function tireInfo(p){
+ const source=(clean(p.title)+' '+clean(p.description).replace(/<[^>]*>/g,' ')).replace(/&nbsp;/gi,' ');
+ const sizes=[];
+ const metric=/\b(\d{3})\s*\/\s*(\d{2})\s*r\s*(\d{2})\b/gi;
+ const flotation=/\b(\d{2}(?:\.\d+)?)\s*[x×/]\s*(\d{1,2}(?:\.\d+)?)\s*r\s*(\d{2})\b/gi;
+ for(const re of [metric,flotation]){
+  let m;
+  while((m=re.exec(source))){
+   const item={width:m[1],profile:m[2],diameter:m[3]};
+   if(!sizes.some(x=>x.width===item.width&&x.profile===item.profile&&x.diameter===item.diameter))sizes.push(item);
+  }
+ }
+ const lower=source.toLowerCase();
+ let season='';
+ if(/всесезон|all.?season/.test(lower))season='Всесезонные';
+ else if(/зимн|winter|шипован|нешипован/.test(lower))season='Зимние';
+ else if(/летн|summer/.test(lower))season='Летние';
+ return {sizes,season};
+}
+const tireProducts=products.filter(isTireProduct);
+function fillValues(id,values,label){
+ [...new Set(values.filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b),'ru',{numeric:true})).forEach(v=>{
+  const o=document.createElement('option');o.value=v;o.textContent=label?label(v):v;$(id).appendChild(o);
+ });
 }
 fillSelect('diameter','diameter',v=>'R'+v);
 {
@@ -171,6 +215,16 @@ fillSelect('diameter','diameter',v=>'R'+v);
 }
 fillSelect('width','width',v=>v+'"');
 fillSelect('et','et',v=>'ET '+v);
+fillValues('tireBrand',tireProducts.map(p=>clean(p.brand)));
+fillValues('tireWidth',tireProducts.flatMap(p=>tireInfo(p).sizes.map(x=>x.width)));
+fillValues('tireProfile',tireProducts.flatMap(p=>tireInfo(p).sizes.map(x=>x.profile)));
+fillValues('tireDiameter',tireProducts.flatMap(p=>tireInfo(p).sizes.map(x=>x.diameter)),v=>'R'+v);
+$('productType').addEventListener('change',()=>{
+ const type=$('productType').value;
+ $('wheelFilters').hidden=type==='tires';
+ $('tireFilters').hidden=type==='wheels';
+ render();
+});
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function money(v){let n=Number(String(v).replace(/[^\d.,]/g,'').replace(',','.'));return n>0?n.toLocaleString('ru-RU')+' ₽':(v?esc(v):'Цена по запросу')}
 function card(p){
@@ -246,15 +300,31 @@ function showSharedProduct(){
 }
 
   function render(){
+ const type=$('productType').value;
  let list=products.filter(p=>{
   const q=$('search').value.toLowerCase();
   const hay=[p.title,p.brand,p.model,p.pcd,p.description,p.id].join(' ').toLowerCase();
-
-  return (!q||hay.includes(q))&&
-   (!$('diameter').value||clean(p.diameter)===$('diameter').value)&&
-   (!$('pcd').value||(clean(p.holes)+'x'+clean(p.pcd))===$('pcd').value)&&
-   (!$('width').value||clean(p.width)===$('width').value)&&
-   (!$('et').value||clean(p.et)===$('et').value);
+  const tire=isTireProduct(p);
+  if(type==='tires'&&!tire)return false;
+  if(type==='wheels'&&tire)return false;
+  if(q&&!hay.includes(q))return false;
+  if(!tire){
+   if($('diameter').value&&clean(p.diameter)!==$('diameter').value)return false;
+   if($('pcd').value&&(clean(p.holes)+'x'+clean(p.pcd))!==$('pcd').value)return false;
+   if($('width').value&&clean(p.width)!==$('width').value)return false;
+   if($('et').value&&clean(p.et)!==$('et').value)return false;
+  }else{
+   const info=tireInfo(p);
+   const matches=info.sizes.filter(size=>
+    (!$('tireWidth').value||size.width===$('tireWidth').value)&&
+    (!$('tireProfile').value||size.profile===$('tireProfile').value)&&
+    (!$('tireDiameter').value||size.diameter===$('tireDiameter').value)
+   );
+   if(($('tireWidth').value||$('tireProfile').value||$('tireDiameter').value)&&!matches.length)return false;
+   if($('tireBrand').value&&clean(p.brand)!==$('tireBrand').value)return false;
+   if($('tireSeason').value&&info.season!==$('tireSeason').value)return false;
+  }
+  return true;
  });
 
  if($('sort').value!=='default')list.sort((a,b)=>{
@@ -267,7 +337,7 @@ function showSharedProduct(){
   ?list.map(card).join('')
   :'<div class="empty">Ничего не найдено. Измени параметры поиска.</div>';
 }
-['search','diameter','pcd','width','et','sort'].forEach(id=>$(id).addEventListener(id==='search'?'input':'change',render));
+['search','diameter','pcd','width','et','tireBrand','tireWidth','tireProfile','tireDiameter','tireSeason','sort'].forEach(id=>$(id).addEventListener(id==='search'?'input':'change',render));
 render();
 showSharedProduct();
 </script></body></html>
