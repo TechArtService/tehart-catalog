@@ -28,16 +28,40 @@ $("previewBtn").onclick=async()=>{
   const photoField = row => Object.prototype.hasOwnProperty.call(row,"ImageUrls") ? "ImageUrls" : "photos";
   const unique = [...new Set(rows.flatMap(row => String(row[photoField(row)]||"").split("|").map(x=>x.trim()).filter(Boolean)))];
   const mapping = new Map(), unresolved = [];
-  const batchSize = 10;
-  for(let i=0;i<unique.length;i+=batchSize){
-    const batch=unique.slice(i,i+batchSize);
-    const result=await api("/api/resolve-photos",{urls:batch});
-    for(const item of result.results||[]){
-      if(item.ok) mapping.set(item.input,item.resolved);
-      else if(item.input.includes("/autoload/")) unresolved.push(item);
-      else mapping.set(item.input,item.input);
+  // Avito applies rate limits: request one image at a time and back off on HTTP 429.
+  for(let i=0;i<unique.length;i++){
+    const photoUrl=unique[i];
+    let item=null, lastError="";
+    for(let attempt=0;attempt<5;attempt++){
+      try{
+        const result=await api("/api/resolve-photos",{urls:[photoUrl]});
+        item=(result.results||[])[0]||null;
+        if(item && item.ok) break;
+        if(item && item.status===429){
+          const waitMs=Math.min(30000,3000*Math.pow(2,attempt));
+          $("resolverMsg").textContent="Avito ограничивает запросы. Пауза "+Math.ceil(waitMs/1000)+" сек. ("+(i+1)+" из "+unique.length+")";
+          await new Promise(resolve=>setTimeout(resolve,waitMs));
+          continue;
+        }
+        break;
+      }catch(e){
+        lastError=e.message;
+        const waitMs=Math.min(30000,2000*Math.pow(2,attempt));
+        $("resolverMsg").textContent="Повтор запроса фото "+(i+1)+" из "+unique.length+" через "+Math.ceil(waitMs/1000)+" сек.";
+        await new Promise(resolve=>setTimeout(resolve,waitMs));
+      }
     }
-    $("resolverMsg").textContent="Проверка фотографий: "+Math.min(i+batch.length,unique.length)+" из "+unique.length;
+    if(item && item.ok) mapping.set(item.input,item.resolved);
+    else if(photoUrl.includes("/autoload/")) unresolved.push(item||{input:photoUrl,error:lastError||"Не удалось разрешить ссылку"});
+    else mapping.set(photoUrl,photoUrl);
+    $("resolverMsg").textContent="Проверка фотографий: "+(i+1)+" из "+unique.length+"; успешно: "+mapping.size+"; ошибок: "+unresolved.length;
+    // Small steady interval prevents bursts even when Avito responds quickly.
+    if(i<unique.length-1) await new Promise(resolve=>setTimeout(resolve,1200));
+    // Stop early if Avito is still rate-limiting after retries; don't hammer the service.
+    if(item && item.status===429 && unresolved.length>=3){
+      unresolved.push(...unique.slice(i+1).filter(x=>x.includes("/autoload/")).map(input=>({input,error:"Проверка остановлена из-за ограничения Avito"})));
+      break;
+    }
   }
   if(unresolved.length){
     $("resolverMsg").className="danger";
