@@ -55,23 +55,47 @@ function statusActive(v) {
 }
 function clean(v) { return v == null ? "" : String(v).trim(); }
 function normalizePhoto(value) {
-  const raw = clean(value);
+  let raw = clean(value).replace(/&amp;/gi, "&").replace(/^<|>$/g, "");
   if (!raw) return "";
+  // Avito Autoload image links contain the actual image path in imageSlug.
   try {
     const u = new URL(raw);
-    const host = u.hostname.toLowerCase();
-    if ((host === "avito.ru" || host === "www.avito.ru") && u.pathname.startsWith("/autoload/")) {
+    const slug = u.searchParams.get("imageSlug");
+    if (slug && /^\/image\//.test(slug)) return "https://b10.img.avito.st" + slug;
+    if (/^https?:$/.test(u.protocol) && /(^|\.)img\.avito\.st$/i.test(u.hostname)) {
       u.protocol = "https:";
-      u.hostname = "www.avito.ru";
       return u.toString();
     }
     return raw;
   } catch { return raw; }
 }
+function extractPhotoUrls(value) {
+  const textValue = clean(value).replace(/&amp;/gi, "&");
+  if (!textValue) return [];
+  const found = [];
+  // Markdown: [photo](URL), HTML attributes, or plain URLs.
+  const candidates = textValue.match(/https?:\/\/[^\s<>\])"'，,]+/gi) || [];
+  for (const candidate of candidates) {
+    const url = normalizePhoto(candidate.replace(/[)\]}.,;]+$/, ""));
+    if (/^https:\/\/b10\.img\.avito\.st\/image\//i.test(url) ||
+        /(^|\.)img\.avito\.st\//i.test(url) ||
+        /imageSlug=/i.test(candidate)) found.push(url);
+  }
+  return found;
+}
 function normalize(row) {
   const id = clean(row.AvitoId || row.id || row.ID);
   if (!id) return null;
-  const photos = clean(row.ImageUrls || row.photos).split("|").map(normalizePhoto).filter(Boolean);
+  const photoValues = [];
+  for (const [key, value] of Object.entries(row)) {
+    if (/image|photo|фото|картин/i.test(key) || typeof value === "string") {
+      photoValues.push(...extractPhotoUrls(value));
+      if (/^(imageurls|photos|photo|images)$/i.test(key)) {
+        photoValues.push(...clean(value).split(/[|\n;]/).map(normalizePhoto).filter(Boolean));
+      }
+    }
+  }
+  const photos = [...new Set(photoValues.filter(Boolean))];
   const title = clean(row.Title || row.title);
   const p = {
     id, title, price: clean(row.Price || row.price),
