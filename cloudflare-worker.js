@@ -54,10 +54,24 @@ function statusActive(v) {
   return !s || /active|актив|размещ|опублик/.test(s);
 }
 function clean(v) { return v == null ? "" : String(v).trim(); }
+function normalizePhoto(value) {
+  const raw = clean(value);
+  if (!raw) return "";
+  try {
+    const u = new URL(raw);
+    const host = u.hostname.toLowerCase();
+    if ((host === "avito.ru" || host === "www.avito.ru") && u.pathname.startsWith("/autoload/")) {
+      u.protocol = "https:";
+      u.hostname = "www.avito.ru";
+      return u.toString();
+    }
+    return raw;
+  } catch { return raw; }
+}
 function normalize(row) {
   const id = clean(row.AvitoId || row.id || row.ID);
   if (!id) return null;
-  const photos = clean(row.ImageUrls || row.photos).split("|").map(x=>x.trim()).filter(Boolean);
+  const photos = clean(row.ImageUrls || row.photos).split("|").map(normalizePhoto).filter(Boolean);
   const title = clean(row.Title || row.title);
   const p = {
     id, title, price: clean(row.Price || row.price),
