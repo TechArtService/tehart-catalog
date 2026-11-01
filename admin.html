@@ -27,8 +27,8 @@ $("previewBtn").onclick=async()=>{
   // Предварительно считаем ссылки на изображения в любых ячейках Excel.
   const photoCount = rows.reduce((total,row)=>{
     const text=Object.values(row).filter(v=>typeof v==="string").join("\\n").replace(/&amp;/gi,"&");
-    const urls=text.match(/https?:\\/\\/[^\\s<>\\])"'，,]+/gi)||[];
-    return total+urls.filter(u=>/imageSlug=|img\\.avito\\.st\\/image\\//i.test(u)).length;
+    const urls=text.match(/https?:\/\/[^\s<>"'，,]+/gi)||[];
+    return total+urls.filter(u=>/imageSlug=|img\.avito\.st\/image\//i.test(u)).length;
   },0);
   $("resolverMsg").className="muted";
   $("resolverMsg").textContent="Фотографии из Excel: "+photoCount+". Проверяю строки каталога…";
