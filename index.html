@@ -302,12 +302,17 @@ function showSharedProduct(){
 
   function render(){
  const type=$('productType').value;
+ const wheelFiltersActive=['diameter','pcd','width','et'].some(id=>Boolean($(id).value));
+ const tireFiltersActive=['tireBrand','tireWidth','tireProfile','tireDiameter','tireSeason'].some(id=>Boolean($(id).value));
  let list=products.filter(p=>{
   const q=$('search').value.toLowerCase();
   const hay=[p.title,p.brand,p.model,p.pcd,p.description,p.id].join(' ').toLowerCase();
   const tire=isTireProduct(p);
   if(type==='tires'&&!tire)return false;
   if(type==='wheels'&&tire)return false;
+  // В режиме «Все товары» активные фильтры одной категории не должны пропускать товары другой категории.
+  if(type==='all'&&tire&&wheelFiltersActive)return false;
+  if(type==='all'&&!tire&&tireFiltersActive)return false;
   if(q&&!hay.includes(q))return false;
   if(!tire){
    if($('diameter').value&&clean(p.diameter)!==$('diameter').value)return false;
