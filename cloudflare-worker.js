@@ -115,6 +115,48 @@ async function handle(request, env) {
   }
   if (!url.pathname.startsWith("/api/")) return fetch(request);
   if (!await authorized(request,env)) return json({error:"Требуется вход"},401);
+  if (url.pathname === "/api/resolve-photos" && request.method === "POST") {
+    const body = await request.json();
+    if (!Array.isArray(body.urls) || body.urls.length < 1 || body.urls.length > 10) {
+      return json({error:"Передайте от 1 до 10 ссылок"},400);
+    }
+    const results = await Promise.all(body.urls.map(async (raw) => {
+      const input = clean(raw);
+      try {
+        let target = new URL(input);
+        const allowed = (u) => {
+          const h = u.hostname.toLowerCase();
+          return (h === "avito.ru" || h.endsWith(".avito.ru") || h === "avito.st" || h.endsWith(".avito.st")) &&
+            (u.protocol === "https:" || u.protocol === "http:") && !u.username && !u.password;
+        };
+        if (!allowed(target)) return {input, resolved:input, ok:false, error:"Недопустимый домен"};
+        if (!target.pathname.startsWith("/autoload/")) {
+          return {input, resolved:input, ok:/\.img\.avito\.st$/i.test(target.hostname), error:/\.img\.avito\.st$/i.test(target.hostname) ? "" : "Это не прямая ссылка CDN"};
+        }
+        let response;
+        for (let i=0; i<6; i++) {
+          response = await fetch(target.toString(), {
+            method:"GET", redirect:"manual",
+            headers:{"Range":"bytes=0-31","User-Agent":"Mozilla/5.0 (compatible; TechArtImageResolver/1.0)"}
+          });
+          if (![301,302,303,307,308].includes(response.status)) break;
+          const location = response.headers.get("Location");
+          if (!location) break;
+          const next = new URL(location,target);
+          if (!allowed(next)) return {input, resolved:input, ok:false, error:"Редирект на внешний домен заблокирован"};
+          target = next;
+        }
+        const type = response?.headers.get("Content-Type") || "";
+        const ok = !!response && response.status >= 200 && response.status < 300 &&
+          /^image\//i.test(type) && /\.img\.avito\.st$/i.test(target.hostname);
+        try { await response?.body?.cancel(); } catch {}
+        return {input, resolved:ok ? target.toString() : input, ok, status:response?.status || 0, contentType:type, error:ok ? "" : "Avito не вернул доступную прямую ссылку на изображение"};
+      } catch(e) {
+        return {input, resolved:input, ok:false, error:e.message};
+      }
+    }));
+    return json({results});
+  }
   if (url.pathname === "/api/image-check" && request.method === "POST") {
     const body = await request.json();
     if (!Array.isArray(body.urls) || body.urls.length < 1 || body.urls.length > 3) {
