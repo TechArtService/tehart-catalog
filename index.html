@@ -100,6 +100,11 @@ h2{font-size:17px;line-height:1.35;margin:0}.price{font-size:22px;font-weight:bo
   background: #34302a;
   border-color: #d7ad62;
 }
+.messenger-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.messenger-icon{width:21px;height:21px;display:block;flex:0 0 21px}
+.telegram-btn .messenger-icon{color:#29a9e8}
+.max-icon{border-radius:5px;object-fit:contain}
+
 
 .actions .btn:not(.secondary) {
   background: #d7ad62;
@@ -272,8 +277,14 @@ const shareText=String(p.title||'Диск ТехАрт')+' — '+shareUrl;
    <div class="actions">
     ${p.url?`<a class="btn" href="${esc(p.url)}" target="_blank" rel="noopener">На Авито</a>`:''}
     <a class="btn secondary" href="tel:+79692021112">Позвонить</a>
-    <a class="btn secondary" href="https://t.me/TEXAPT" target="_blank" rel="noopener">Telegram</a>
-    <a class="btn secondary" href="https://max.ru/u/f9LHodD0cOKkYI3dJJgM6xF9t7oEsk-4pNMxzrVsZAJHuUqazfsOMkepZ0U" target="_blank" rel="noopener">MAX</a>
+    <a class="btn secondary messenger-btn telegram-btn" href="https://t.me/TEXAPT" target="_blank" rel="noopener" aria-label="Написать в Telegram">
+     <svg class="messenger-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21.7 4.35 18.6 19c-.23 1.04-.84 1.3-1.7.81l-4.7-3.47-2.27 2.18c-.25.25-.46.46-.94.46l.34-4.79 8.72-7.88c.38-.34-.08-.53-.59-.19L6.68 13.1 2.06 11.65c-1-.31-1.02-1 .21-1.48L20.33 3.1c.83-.3 1.56.2 1.37 1.25Z"/></svg>
+     <span>Telegram</span>
+    </a>
+    <a class="btn secondary messenger-btn max-btn" href="https://max.ru/u/f9LHodD0cOKkYI3dJJgM6xF9t7oEsk-4pNMxzrVsZAJHuUqazfsOMkepZ0U" target="_blank" rel="noopener" aria-label="Написать в MAX">
+     <img class="messenger-icon max-icon" src="https://max.ru/s/img/big-logo.png" alt="">
+     <span>MAX</span>
+    </a>
     <button class="btn secondary" type="button" onclick="shareProduct(this)" data-url="${esc(shareUrl)}" data-title="${esc(p.title||'Диск ТехАрт')}">Поделиться</button>
    </div>
   </div>
