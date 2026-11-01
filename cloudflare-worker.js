@@ -210,6 +210,7 @@ async function handle(request, env) {
     if (!tokenData.access_token) return json({ok:false,stage:"token",error:"Нет access_token"},502);
     const authHeaders = {"Authorization":"Bearer "+tokenData.access_token,"Accept":"application/json"};
     const endpoints = [
+      {name:"profile",url:"https://api.avito.ru/autoload/v2/profile"},
       {name:"uploads",url:"https://api.avito.ru/autoload/v4/uploads?perPage=1&page=1",collection:"uploads"},
       {name:"lastSuccessful",url:"https://api.avito.ru/autoload/v4/uploads/last_successful"},
       {name:"lastSuccessfulItems",url:"https://api.avito.ru/autoload/v4/uploads/last_successful/items?perPage=1&page=1",collection:"items"}
