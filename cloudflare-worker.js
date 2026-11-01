@@ -196,6 +196,43 @@ async function handle(request, env) {
       detailShape
     });
   }
+  if (url.pathname === "/api/avito-autoload-check" && request.method === "POST") {
+    const clientId = env.AVITO_PERSONAL_CLIENT_ID;
+    const clientSecret = env.AVITO_PERSONAL_CLIENT_SECRET;
+    if (!clientId || !clientSecret) return json({ok:false,stage:"configuration",error:"Не заданы ключи персонального приложения"},500);
+    const tokenResponse = await fetch("https://api.avito.ru/token/", {
+      method:"POST",
+      headers:{"Content-Type":"application/x-www-form-urlencoded","Accept":"application/json"},
+      body:new URLSearchParams({grant_type:"client_credentials",client_id:clientId,client_secret:clientSecret})
+    });
+    if (!tokenResponse.ok) return json({ok:false,stage:"token",httpStatus:tokenResponse.status},502);
+    const tokenData = await tokenResponse.json();
+    if (!tokenData.access_token) return json({ok:false,stage:"token",error:"Нет access_token"},502);
+    const authHeaders = {"Authorization":"Bearer "+tokenData.access_token,"Accept":"application/json"};
+    const endpoints = [
+      {name:"uploads",url:"https://api.avito.ru/autoload/v4/uploads?perPage=1&page=1"},
+      {name:"lastSuccessful",url:"https://api.avito.ru/autoload/v4/uploads/last_successful"},
+      {name:"lastSuccessfulItems",url:"https://api.avito.ru/autoload/v4/uploads/last_successful/items?perPage=1&page=1"}
+    ];
+    const checks = {};
+    for (const endpoint of endpoints) {
+      try {
+        const response = await fetch(endpoint.url,{headers:authHeaders});
+        const body = await response.json().catch(()=>({}));
+        checks[endpoint.name] = {
+          httpStatus:response.status,
+          ok:response.ok,
+          responseKeys:body && typeof body === "object" ? Object.keys(body) : [],
+          metaKeys:body && body.meta ? Object.keys(body.meta) : [],
+          resourcesCount:Array.isArray(body.resources) ? body.resources.length : null,
+          sampleFieldNames:Array.isArray(body.resources) && body.resources[0] && typeof body.resources[0] === "object" ? Object.keys(body.resources[0]) : Object.keys(body).filter(k=>!["events","sections_stats","listing_fees"].includes(k))
+        };
+      } catch(e) {
+        checks[endpoint.name] = {ok:false,error:e.message};
+      }
+    }
+    return json({ok:true,stage:"autoload_check",accountId:167633163,checks});
+  }
   if (url.pathname === "/api/resolve-photos" && request.method === "POST") {
     const body = await request.json();
     if (!Array.isArray(body.urls) || body.urls.length < 1 || body.urls.length > 10) {
