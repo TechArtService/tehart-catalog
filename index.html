@@ -184,7 +184,7 @@ function card(p){
  ].filter(Boolean).map(esc).join('<br>');
 
  const photo=p.photos?.length
-  ?`<img loading="lazy" src="${esc(p.photos[0])}" alt="${esc(p.title)}" onerror="this.onerror=null;this.src='${esc(p.photos[1]||'')}';if(!this.src||this.src.endsWith('/'))this.parentElement.innerHTML='<span class=no-photo>Фото недоступно</span>'">`
+  ?`<img loading="lazy" referrerpolicy="no-referrer" src="${esc(p.photos[0])}" alt="${esc(p.title)}" onerror="this.onerror=null;this.src='${esc(p.photos[1]||'')}';if(!this.src||this.src.endsWith('/'))this.parentElement.innerHTML='<span class=no-photo>Фото недоступно</span>'">`
   :'<span class="no-photo">Нет фото</span>';
 
  const shareUrl=window.location.origin+window.location.pathname+'#product-'+encodeURIComponent(p.id);
