@@ -116,28 +116,7 @@ h2{font-size:17px;line-height:1.35;margin:0}.price{font-size:22px;font-weight:bo
   background: #e7c27e;
 }
 
-.actions a[href*="max.ru"] {
-  background: #1c1e21;
-  color: #f5f5f5;
-  border-color: #d7ad62;
-}
-  min-width: 0;
-  flex: 1 1 auto;
-}
-
-.actions a[href*="max.ru"] {
-  background: #1c1e21;
-  color: #fff;
-}.actions a[href*="max.ru"] {
-  display: inline-flex !important;
-  align-items: center;
-  justify-content: center;
-  min-width: 65px;
-  background: #1c1e21 !important;
-  color: #fff !important;
-  position: relative;
-  z-index: 2;
-}.btn{flex:1;text-align:center;padding:11px 6px;border-radius:6px;text-decoration:none;font-weight:bold;background:var(--gold);color:#171717}
+.btn{flex:1;text-align:center;padding:11px 6px;border-radius:6px;text-decoration:none;font-weight:bold;background:var(--gold);color:#171717}
 .btn.secondary{background:#303236;color:white}.empty{padding:40px;text-align:center;color:var(--muted)}
 @media(max-width:500px){main{padding:14px}.photo{height:190px}}
 </style></head><body>
@@ -150,8 +129,8 @@ h2{font-size:17px;line-height:1.35;margin:0}.price{font-size:22px;font-weight:bo
 </header>
 <main>
 <div class="category-switch">
-<button type="button" class="category-btn" id="showTires">Смотреть шины</button>
 <button type="button" class="category-btn" id="showWheels">Смотреть диски</button>
+<button type="button" class="category-btn" id="showTires">Смотреть шины</button>
 </div>
 <select id="productType" hidden><option value="all">Все товары</option><option value="wheels">Диски</option><option value="tires">Шины</option></select>
 <div class="filters" id="filterControls" hidden>
@@ -161,6 +140,8 @@ h2{font-size:17px;line-height:1.35;margin:0}.price{font-size:22px;font-weight:bo
 <select id="pcd"><option value="">Любая сверловка</option></select>
 <select id="width"><option value="">Любая ширина</option></select>
 <select id="et"><option value="">Любой вылет ET</option></select>
+<select id="dia"><option value="">Любой DIA</option></select>
+<button type="button" class="btn secondary" id="resetFilters">Сбросить фильтры</button>
 </fieldset>
 <fieldset class="filter-group" id="tireFilters" hidden><legend>Фильтры шин</legend>
 <select id="tireBrand"><option value="">Любой бренд</option></select>
@@ -229,12 +210,13 @@ fillSelect('diameter','diameter',v=>'R'+v);
 }
 fillSelect('width','width',v=>v+'"');
 fillSelect('et','et',v=>'ET '+v);
+fillSelect('dia','dia',v=>'DIA '+v);
 fillValues('tireBrand',tireProducts.map(p=>clean(p.brand)));
 fillValues('tireWidth',tireProducts.flatMap(p=>tireInfo(p).sizes.map(x=>x.width)));
 fillValues('tireProfile',tireProducts.flatMap(p=>tireInfo(p).sizes.map(x=>x.profile)));
 fillValues('tireDiameter',tireProducts.flatMap(p=>tireInfo(p).sizes.map(x=>x.diameter)),v=>'R'+v);
 function clearCategoryFilters(){
- ['diameter','pcd','width','et','tireBrand','tireWidth','tireProfile','tireDiameter','tireSeason','search'].forEach(id=>$(id).value='');
+ ['diameter','pcd','width','et','dia','tireBrand','tireWidth','tireProfile','tireDiameter','tireSeason','search'].forEach(id=>$(id).value='');
 }
 function chooseCategory(type){
  clearCategoryFilters();
@@ -276,7 +258,7 @@ const shareText=String(p.title||'Диск ТехАрт')+' — '+shareUrl;
    <div class="specs">${specs||'<span class=muted>Характеристики не указаны</span>'}</div>
    <div class="actions">
     ${p.url?`<a class="btn" href="${esc(p.url)}" target="_blank" rel="noopener">На Авито</a>`:''}
-    <a class="btn secondary" href="tel:+79692021112">Позвонить</a>
+    <a class="btn secondary" href="tel:+79692021112"><svg class="messenger-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.02-.24c1.12.37 2.33.56 3.57.56a1 1 0 011 1V20a1 1 0 01-1 1C10.61 21 3 13.39 3 4a1 1 0 011-1h3.5a1 1 0 011 1c0 1.24.19 2.45.56 3.57a1 1 0 01-.25 1.02l-2.19 2.2z"/></svg>Позвонить</a>
     <a class="btn secondary messenger-btn telegram-btn" href="https://t.me/TEXAPT" target="_blank" rel="noopener" aria-label="Написать в Telegram">
      <svg class="messenger-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21.7 4.35 18.6 19c-.23 1.04-.84 1.3-1.7.81l-4.7-3.47-2.27 2.18c-.25.25-.46.46-.94.46l.34-4.79 8.72-7.88c.38-.34-.08-.53-.59-.19L6.68 13.1 2.06 11.65c-1-.31-1.02-1 .21-1.48L20.33 3.1c.83-.3 1.56.2 1.37 1.25Z"/></svg>
      <span>Telegram</span>
@@ -331,7 +313,7 @@ function showSharedProduct(){
 
   function render(){
  const type=$('productType').value;
- const wheelFiltersActive=['diameter','pcd','width','et'].some(id=>Boolean($(id).value));
+ const wheelFiltersActive=['diameter','pcd','width','et','dia'].some(id=>Boolean($(id).value));
  const tireFiltersActive=['tireBrand','tireWidth','tireProfile','tireDiameter','tireSeason'].some(id=>Boolean($(id).value));
  let list=products.filter(p=>{
   const q=$('search').value.toLowerCase();
@@ -348,6 +330,7 @@ function showSharedProduct(){
    if($('pcd').value&&(clean(p.holes)+'x'+clean(p.pcd))!==$('pcd').value)return false;
    if($('width').value&&clean(p.width)!==$('width').value)return false;
    if($('et').value&&clean(p.et)!==$('et').value)return false;
+   if($('dia').value&&clean(p.dia)!==$('dia').value)return false;
   }else{
    const info=tireInfo(p);
    const matches=info.sizes.filter(size=>
@@ -388,7 +371,7 @@ function updateFacetOptions(){
  const query=$('search').value.toLowerCase();
  const wheels=products.filter(p=>!isTireProduct(p)&&type!=='tires'&&
   (!query||[p.title,p.brand,p.model,p.pcd,p.description,p.id].join(' ').toLowerCase().includes(query)));
- const wheelKeys=['diameter','pcd','width','et'];
+ const wheelKeys=['diameter','pcd','width','et','dia'];
  const wheelAvailable=(p,skip)=>wheelKeys.every(key=>{
   if(key===skip||!$(key).value)return true;
   if(key==='pcd')return (clean(p.holes)+'x'+clean(p.pcd))===$('pcd').value;
@@ -398,6 +381,7 @@ function updateFacetOptions(){
  refreshFacet('pcd',wheels.filter(p=>wheelAvailable(p,'pcd')&&clean(p.holes)&&clean(p.pcd)).map(p=>clean(p.holes)+'x'+clean(p.pcd)),v=>v.replace('x','×'));
  refreshFacet('width',wheels.filter(p=>wheelAvailable(p,'width')).map(p=>clean(p.width)),v=>v+'″');
  refreshFacet('et',wheels.filter(p=>wheelAvailable(p,'et')).map(p=>clean(p.et)),v=>'ET '+v);
+ refreshFacet('dia',wheels.filter(p=>wheelAvailable(p,'dia')).map(p=>clean(p.dia)),v=>'DIA '+v);
 
  const tires=tireProducts.filter(p=>type!=='wheels'&&
   (!query||[p.title,p.brand,p.model,p.description,p.id].join(' ').toLowerCase().includes(query)));
@@ -416,11 +400,12 @@ function updateFacetOptions(){
  refreshFacet('tireDiameter',tires.filter(p=>tireAvailable(p,'tireDiameter')).flatMap(p=>tireSizes(p,'tireDiameter').map(x=>x.diameter)),v=>'R'+v);
  refreshFacet('tireSeason',tires.filter(p=>tireAvailable(p,'tireSeason')).map(p=>tireInfo(p).season||'Не указано'));
 }
-['search','diameter','pcd','width','et','tireBrand','tireWidth','tireProfile','tireDiameter','tireSeason'].forEach(id=>$(id).addEventListener(id==='search'?'input':'change',()=>{
+['search','diameter','pcd','width','et','dia','tireBrand','tireWidth','tireProfile','tireDiameter','tireSeason'].forEach(id=>$(id).addEventListener(id==='search'?'input':'change',()=>{
  updateFacetOptions();
  render();
 }));
 $('sort').addEventListener('change',render);
+$('resetFilters').addEventListener('click',()=>{clearCategoryFilters();$('sort').value='default';updateFacetOptions();render();});
 chooseCategory('wheels');
 showSharedProduct();
 </script></body></html>
