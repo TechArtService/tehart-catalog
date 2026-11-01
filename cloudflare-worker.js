@@ -372,7 +372,7 @@ async function handle(request, env) {
             available:true, count:configuredFeeds.length, itemKeys:profileFeedCheck.itemKeys,
             checked:true, httpStatus:sourceResponse?.status || 0,
             redirected:redirectCount>0 || [301,302,303,307,308].includes(sourceResponse?.status),
-            redirectCount, redirectHostMatchesSource:redirectHost ? redirectHost===sourceUrl.hostname.toLowerCase() : null,
+            redirectCount, redirectHost:redirectHost || null, redirectHostMatchesSource:redirectHost ? redirectHost===sourceUrl.hostname.toLowerCase() : null,
             contentType:sourceType, sampleBytes:new TextEncoder().encode(sample).length,
             format:looksXml?"xml":looksCsv?"csv_or_delimited":sample.trim().startsWith("{")?"json":"unknown",
             looksLikeAvitoFeed:looksXml || looksCsv
