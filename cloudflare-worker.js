@@ -510,7 +510,14 @@ async function handle(request, env) {
     const c=await readCatalog(env);
     const changes=diff(c.products,incoming);
     const merged=new Map(c.products.map(p=>[String(p.id),p]));
-    for (const p of incoming) merged.set(p.id,p);
+    for (const p of incoming) {
+      const previous = merged.get(String(p.id));
+      // Keep existing catalog photos when the Excel row contains no usable photo URLs.
+      if (previous && (!Array.isArray(p.photos) || p.photos.length === 0)) {
+        p.photos = Array.isArray(previous.photos) ? previous.photos : [];
+      }
+      merged.set(String(p.id),p);
+    }
     for (const p of changes.inactive) merged.set(p.id,p);
     const products=[...merged.values()];
     const replacement="const products = "+JSON.stringify(products)+";";
