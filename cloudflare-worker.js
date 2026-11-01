@@ -328,13 +328,28 @@ async function handle(request, env) {
             (sourceUrl.port && sourceUrl.port !== "443")) {
           profileFeedCheck.reason = "Источник не прошёл безопасную проверку HTTPS/host";
         } else {
-          const sourceResponse = await fetch(sourceUrl.toString(), {
-            method:"GET", redirect:"manual",
-            headers:{"Range":"bytes=0-8191","User-Agent":"TechArt-Feed-Diagnostic/1.0"}
-          });
-          const sourceType = sourceResponse.headers.get("Content-Type") || "";
+          let probeUrl = sourceUrl;
+          let sourceResponse = null;
+          let redirectCount = 0;
+          let redirectHost = "";
+          for (let hop=0; hop<4; hop++) {
+            sourceResponse = await fetch(probeUrl.toString(), {
+              method:"GET", redirect:"manual",
+              headers:{"Range":"bytes=0-8191","User-Agent":"TechArt-Feed-Diagnostic/1.0"}
+            });
+            if (![301,302,303,307,308].includes(sourceResponse.status)) break;
+            const location = sourceResponse.headers.get("Location");
+            if (!location) break;
+            const nextUrl = new URL(location,probeUrl);
+            redirectHost = nextUrl.hostname.toLowerCase();
+            if (nextUrl.protocol !== "https:" || nextUrl.hostname.toLowerCase() !== sourceUrl.hostname.toLowerCase() ||
+                nextUrl.username || nextUrl.password || (nextUrl.port && nextUrl.port !== "443")) break;
+            probeUrl = nextUrl;
+            redirectCount++;
+          }
+          const sourceType = sourceResponse?.headers.get("Content-Type") || "";
           let sample = "";
-          if (sourceResponse.body) {
+          if (sourceResponse?.body && ![301,302,303,307,308].includes(sourceResponse.status)) {
             const reader = sourceResponse.body.getReader();
             const chunks = [];
             let total = 0;
@@ -355,7 +370,9 @@ async function handle(request, env) {
           const looksCsv = /(^|\\n)[^<\\r\\n]+[,;][^<\\r\\n]+/.test(sample);
           profileFeedCheck = {
             available:true, count:configuredFeeds.length, itemKeys:profileFeedCheck.itemKeys,
-            checked:true, httpStatus:sourceResponse.status, redirected:[301,302,303,307,308].includes(sourceResponse.status),
+            checked:true, httpStatus:sourceResponse?.status || 0,
+            redirected:redirectCount>0 || [301,302,303,307,308].includes(sourceResponse?.status),
+            redirectCount, redirectHostMatchesSource:redirectHost ? redirectHost===sourceUrl.hostname.toLowerCase() : null,
             contentType:sourceType, sampleBytes:new TextEncoder().encode(sample).length,
             format:looksXml?"xml":looksCsv?"csv_or_delimited":sample.trim().startsWith("{")?"json":"unknown",
             looksLikeAvitoFeed:looksXml || looksCsv
