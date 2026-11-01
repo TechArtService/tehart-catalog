@@ -248,7 +248,62 @@ async function handle(request, env) {
         checks[endpoint.name] = {ok:false,error:e.message};
       }
     }
-    return json({ok:true,stage:"autoload_check",checks});
+    let feedCheck = {available:false,reason:"В последней загрузке не найден адрес фида"};
+    try {
+      const lastResponse = await fetch("https://api.avito.ru/autoload/v4/uploads/last_successful",{headers:authHeaders});
+      const lastBody = await lastResponse.json().catch(()=>({}));
+      const feed = Array.isArray(lastBody.feed_urls) ? lastBody.feed_urls[0] : null;
+      if (lastResponse.ok && feed && typeof feed.url === "string") {
+        const feedUrl = new URL(feed.url);
+        const host = feedUrl.hostname.toLowerCase();
+        const unsafeHost = !host || host === "localhost" || host.endsWith(".localhost") ||
+          host.endsWith(".local") || /^\\d{1,3}(\\.\\d{1,3}){3}$/.test(host) ||
+          host === "[::1]" || host.includes(":");
+        if (feedUrl.protocol !== "https:" || feedUrl.username || feedUrl.password || unsafeHost || (feedUrl.port && feedUrl.port !== "443")) {
+          feedCheck = {available:true,checked:false,reason:"Адрес фида не прошёл безопасную проверку HTTPS/host"};
+        } else {
+          const feedResponse = await fetch(feedUrl.toString(),{
+            method:"GET",redirect:"manual",
+            headers:{"Range":"bytes=0-8191","User-Agent":"TechArt-Feed-Diagnostic/1.0"}
+          });
+          const contentType = feedResponse.headers.get("Content-Type") || "";
+          const contentLength = feedResponse.headers.get("Content-Length") || "";
+          let sample = "";
+          if (feedResponse.body) {
+            const reader = feedResponse.body.getReader();
+            const chunks = [];
+            let total = 0;
+            while (total < 8192) {
+              const part = await reader.read();
+              if (part.done) break;
+              const chunk = part.value.slice(0,8192-total);
+              chunks.push(chunk); total += chunk.length;
+              if (chunk.length < part.value.length) break;
+            }
+            try { await reader.cancel(); } catch {}
+            const joined = new Uint8Array(total);
+            let offset = 0;
+            for (const chunk of chunks) { joined.set(chunk,offset); offset += chunk.length; }
+            sample = new TextDecoder("utf-8",{fatal:false}).decode(joined);
+          }
+          const tagNames = [...new Set([...sample.matchAll(/<([A-Za-z_][\\w:.-]*)\\b/g)].map(m=>m[1]))].slice(0,60);
+          const looksXml = /<\\?xml|<Ads\\b|<Ad\\b|<items?\\b/i.test(sample);
+          const looksCsv = /(^|\\n)[^<\\r\\n]+[,;][^<\\r\\n]+/.test(sample);
+          feedCheck = {
+            available:true,checked:true,httpStatus:feedResponse.status,
+            redirected:[301,302,303,307,308].includes(feedResponse.status),
+            contentType,contentLength,
+            sampleBytes: new TextEncoder().encode(sample).length,
+            format:looksXml?"xml":looksCsv?"csv_or_delimited":sample.trim().startsWith("{")?"json":"unknown",
+            looksLikeAvitoFeed:looksXml || looksCsv,
+            xmlTagNames:tagNames
+          };
+        }
+      }
+    } catch(e) {
+      feedCheck = {available:true,checked:false,reason:"Не удалось безопасно проверить фид",errorType:e.name||"Error"};
+    }
+    return json({ok:true,stage:"autoload_check",checks,feedCheck});
   }
   if (url.pathname === "/api/resolve-photos" && request.method === "POST") {
     const body = await request.json();
