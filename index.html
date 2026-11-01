@@ -184,7 +184,7 @@ function card(p){
  ].filter(Boolean).map(esc).join('<br>');
 
  const photo=p.photos?.length
-  ?`<img loading="lazy" referrerpolicy="no-referrer" src="${esc(p.photos[0])}" alt="${esc(p.title)}" onerror="this.onerror=null;this.src='${esc(p.photos[1]||'')}';if(!this.src||this.src.endsWith('/'))this.parentElement.innerHTML='<span class=no-photo>Фото недоступно</span>'">`
+  ?`<img loading="lazy" decoding="async" referrerpolicy="no-referrer" data-photos="${esc(JSON.stringify(p.photos))}" data-photo-index="0" src="${esc(p.photos[0])}" alt="${esc(p.title)}" onerror="nextPhoto(this)">`
   :'<span class="no-photo">Нет фото</span>';
 
  const shareUrl=window.location.origin+window.location.pathname+'#product-'+encodeURIComponent(p.id);
@@ -207,6 +207,19 @@ const shareText=String(p.title||'Диск ТехАрт')+' — '+shareUrl;
  </article>`;
 }
 
+
+function nextPhoto(img){
+ let urls=[];
+ try{urls=JSON.parse(img.dataset.photos||"[]")}catch{}
+ const next=Number(img.dataset.photoIndex||0)+1;
+ if(next>=urls.length){
+  img.onerror=null;
+  img.parentElement.innerHTML='<span class="no-photo">Фото временно недоступно</span>';
+  return;
+ }
+ img.dataset.photoIndex=String(next);
+ setTimeout(()=>{img.src=urls[next]},700);
+}
 
 async function shareProduct(button){
  const url=button.dataset.url;
